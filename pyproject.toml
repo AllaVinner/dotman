@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dotmanager"
+authors = [
+	{name = "Joel Ottosson"}
+]
+# dymanic = ["version"]
+version = "0.0.1" # Dynamicly set
+description = "Dot file manager"
+requires-python = ">= 3.8"
+
+[tool.hatch.version]
+path = "dotmanager/__init__.py"
+
+[project.scripts]
+dm = "dotmanager.main:cli"
