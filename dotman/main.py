@@ -1,27 +1,23 @@
-from os.path import exists
 from pprint import pprint
 from pathlib import Path
 import click
 from typing import List, Dict, Literal, Self, Type, Self, get_args
 import json
 import os
-from dataclasses import dataclass
 from enum import Enum, auto
 from pydantic import BaseModel, Field
-from abc import ABC, abstractmethod
 
 import shutil
 
 
 class ProjectStructure:
-    DOTMANAGER_ROOT = Path(".dotmanager")
-    LINK_CONFIG = Path(DOTMANAGER_ROOT, "link_config.json")
-    PREFIX_CONFIG = Path(DOTMANAGER_ROOT, "prefix_config.json")
+    DOTMANAGER_ROOT = Field(Path(".dotman"))
+    PUBLIC_CONFIG = Path(DOTMANAGER_ROOT, "public_config.json")
+    PRIVATE_CONFIG = Path(DOTMANAGER_ROOT, "private_config.json")
     GITIGNORE = Path(DOTMANAGER_ROOT, ".gitignore")
 
 
 PrefixTypeLiteral = Literal["ROOT", "HOME", "CUSTOM"]
-PrefixTypeLiteral.__class__
 
 
 class PrefixType(Enum):
@@ -34,11 +30,9 @@ class PrefixType(Enum):
         return [e.name for e in cls]
 
     @classmethod
-    def parse(cls, prefix_type: Self | PrefixTypeLiteral | str) -> Self:
+    def parse(cls, prefix_type: Self | str) -> Self:
         if isinstance(prefix_type, cls):
             return cls.__getitem__(prefix_type.name)
-        elif isinstance(prefix_type, PrefixTypeLiteral):
-            return cls.__getitem__(prefix_type)
         elif isinstance(prefix_type, str):
             matches = [name for name in cls.names() if name == prefix_type]
             if len(matches) == 0:
@@ -60,20 +54,14 @@ class PrefixType(Enum):
             )
 
 
-class CustomPrefixConfig(BaseModel):
+class CustomPrefix(BaseModel):
     name: str
+    path: Path
     description: str = Field(default="")
 
 
-class LinkConfig(BaseModel):
-    link_path: Path
-    target_name: str
-    prefix_type: PrefixTypeLiteral
-    prefix_config: None | CustomPrefixConfig = Field(default=None)
-
-
-class LinkConfigFile(BaseModel):
-    links: Dict[str, LinkConfig]
+class PrivateConfigFile(BaseModel):
+    prefixes: Dict[str, CustomPrefix]
 
     @classmethod
     def from_file(cls, path: Path) -> Self:
@@ -82,14 +70,24 @@ class LinkConfigFile(BaseModel):
         return cls.model_validate(file_obj)
 
 
-class PrefixConfig(BaseModel):
+class PublicCustomPrefix(BaseModel):
     name: str
-    path: Path
     description: str = Field(default="")
 
+    @classmethod
+    def from_custom_prefix(cls, custom_prefix: CustomPrefix) -> Self:
+        return cls(name=custom_prefix.name, description=custom_prefix.description)
 
-class PrefixConfigFile(BaseModel):
-    prefixes: Dict[str, PrefixConfig]
+
+class Link(BaseModel):
+    link_path: Path
+    target_name: str
+    prefix_type: PrefixType
+    prefix_config: None | PublicCustomPrefix = Field(default=None)
+
+
+class PublicConfigFile(BaseModel):
+    links: Dict[str, Link]
 
     @classmethod
     def from_file(cls, path: Path) -> Self:
@@ -99,21 +97,43 @@ class PrefixConfigFile(BaseModel):
 
 
 class ProjectConfig(BaseModel):
-    links: Dict[str, LinkConfig] = Field(default_factory=lambda: {})
-    prefixes: Dict[str, PrefixConfig] = Field(default_factory=lambda: {})
+    links: Dict[str, Link] = Field(default_factory=lambda: {})
+    prefixes: Dict[str, CustomPrefix] = Field(default_factory=lambda: {})
 
-    def write_links(self, path: Path):
+    def write_public_config(self, path: Path):
         links = dict(links={n: v.model_dump() for n, v in self.links.items()})
         with open(path, "w") as f:
             json.dump(links, f)
 
-    def write_prefixes(self, path: Path):
-        prefixes = dict(links={n: v.model_dump() for n, v in self.prefixes.items()})
+    def write_private_config(self, path: Path) -> None:
+        private_config = dict(
+            prefixes={n: v.model_dump() for n, v in self.prefixes.items()}
+        )
         with open(path, "w") as f:
-            json.dump(prefixes, f)
+            json.dump(private_config, f)
+
+    def write(self, project_path: Path) -> None:
+        self.write_public_config(
+            path=Path(project_path, ProjectStructure.PUBLIC_CONFIG)
+        )
+        self.write_private_config(
+            path=Path(project_path, ProjectStructure.PRIVATE_CONFIG)
+        )
+
+    @classmethod
+    def from_path(cls, project_path: Path) -> Self:
+        if not Path(project_path, ProjectStructure.DOTMANAGER_ROOT).exists():
+            return cls()
+        config = PublicConfigFile.from_file(
+            Path(project_path, ProjectStructure.PUBLIC_CONFIG)
+        )
+        private_config = PrivateConfigFile.from_file(
+            Path(project_path, ProjectStructure.PRIVATE_CONFIG)
+        )
+        return cls(links=config.links, prefixes=private_config.prefixes)
 
 
-GITIGNORE_CONTENT = ProjectStructure.PREFIX_CONFIG.relative_to(
+GITIGNORE_CONTENT = ProjectStructure.PRIVATE_CONFIG.relative_to(
     ProjectStructure.DOTMANAGER_ROOT
 ).as_posix()
 
@@ -121,34 +141,24 @@ GITIGNORE_CONTENT = ProjectStructure.PREFIX_CONFIG.relative_to(
 class DotProject(BaseModel):
     project_path: Path
     config: ProjectConfig = Field(default_factory=lambda: ProjectConfig())
-    _home_path: Path = Field(default_factory=lambda: Path.home(), exclude=True)
-    _root_path: Path = Field(default_factory=lambda: Path("/"), exclude=True)
+    home_path: Path = Field(default_factory=lambda: Path.home(), exclude=True)
+    root_path: Path = Field(default_factory=lambda: Path("/"), exclude=True)
 
-    def _set_home_path(self, home_path: Path) -> None:
-        if not home_path.is_relative_to(self._root_path):
+    def set_home_path(self, home_path: Path) -> None:
+        if not home_path.is_relative_to(self.root_path):
             raise ValueError(
                 "When setting home path, the home path must be relative to current root"
             )
-        self._home_path = home_path
+        self.home_path = home_path
 
-    def _set_root_path(self, root_path: Path) -> None:
-        if not self._home_path.is_relative_to(root_path):
+    def set_root_path(self, root_path: Path) -> None:
+        if not self.home_path.is_relative_to(root_path):
             raise ValueError("When setting root path, the home path must be relative")
-        self._root_path = root_path
+        self.root_path = root_path
 
     @classmethod
     def from_path(cls, project_path: Path) -> Self:
-        if not Path(project_path, ProjectStructure.DOTMANAGER_ROOT).exists():
-            return cls(project_path=project_path)
-        link_config = LinkConfigFile.from_file(
-            Path(project_path, ProjectStructure.LINK_CONFIG)
-        )
-        prefix_config = PrefixConfigFile.from_file(
-            Path(project_path, ProjectStructure.PREFIX_CONFIG)
-        )
-        project_config = ProjectConfig(
-            links=link_config.links, prefixes=prefix_config.prefixes
-        )
+        project_config = ProjectConfig.from_path(project_path=project_path)
         return cls(project_path=project_path, config=project_config)
 
     def _write_gitignore(self):
@@ -166,15 +176,15 @@ class DotProject(BaseModel):
     def init(cls, project_path: Path) -> Self:
         project_path.mkdir(exist_ok=True)
         Path(project_path, ProjectStructure.DOTMANAGER_ROOT).mkdir()
-        dot_manager = cls(project_path=project_path)
-        dot_manager._write_gitignore()
-        dot_manager.config.write_links(
-            Path(dot_manager.project_path, ProjectStructure.LINK_CONFIG)
+        project = cls(project_path=project_path)
+        project._write_gitignore()
+        project.config.write_public_config(
+            Path(project.project_path, ProjectStructure.PUBLIC_CONFIG)
         )
-        dot_manager.config.write_prefixes(
-            Path(dot_manager.project_path, ProjectStructure.PREFIX_CONFIG)
+        project.config.write_private_config(
+            Path(project.project_path, ProjectStructure.PRIVATE_CONFIG)
         )
-        return dot_manager
+        return project
 
     @classmethod
     def ensure(cls, project_path: Path) -> Self:
@@ -183,31 +193,52 @@ class DotProject(BaseModel):
         else:
             return cls.init(project_path)
 
-    def update(self):
-        self.config.write_links(Path(self.project_path, ProjectStructure.LINK_CONFIG))
-        self.config.write_prefixes(
-            Path(self.project_path, ProjectStructure.PREFIX_CONFIG)
+    def write(self):
+        self.config.write_public_config(
+            Path(self.project_path, ProjectStructure.PUBLIC_CONFIG)
+        )
+        self.config.write_private_config(
+            Path(self.project_path, ProjectStructure.PRIVATE_CONFIG)
         )
 
-    def create_link(
+    def add_link(
         self,
         source_path: Path,
         target_name: str | None = None,
         prefix_type: PrefixType | PrefixTypeLiteral | None = None,
-        prefix_config: PrefixConfig | None = None,
+        prefix_config: CustomPrefix | None = None,
+    ):
+        # Harmonize and Validate Input
+        link_name = self._create_link_setup(
+            source_path=source_path,
+            target_name=target_name,
+            prefix_type=prefix_type,
+            prefix_config=prefix_config,
+        )
+        self._create_link_system_call(link_name)
+        self.write()
+
+    def _create_link_setup(
+        self,
+        source_path: Path,
+        target_name: str | None = None,
+        prefix_type: PrefixType | PrefixTypeLiteral | None = None,
+        prefix_config: CustomPrefix | None = None,
     ):
         # Harmonize and Validate Input
         full_source_path = source_path.expanduser().resolve()
         prefix_type = PrefixType.parse(prefix_type or PrefixType.HOME)
         if prefix_type != PrefixType.CUSTOM and prefix_config is not None:
-            raise ValueError("Only prefix type 'CUSTOM' has a custom prefix config")
+            raise ValueError(
+                "Only prefix type 'CUSTOM' may have a custom prefix config"
+            )
         if target_name is None:
             target_name = source_path.name
         full_target_path = Path(self.project_path, target_name).resolve()
         if prefix_type == PrefixType.HOME:
-            prefix = self._home_path
+            prefix = self.home_path
         elif prefix_type == PrefixType.ROOT:
-            prefix = self._root_path
+            prefix = self.root_path
         elif prefix_type == PrefixType.CUSTOM:
             if prefix_config is None:
                 raise ValueError(
@@ -230,21 +261,46 @@ class DotProject(BaseModel):
             )
 
         # Create Config
-        link_config = dict(
-            link_path=full_source_path.relative_to(prefix).as_posix(),
+        self.config.links[target_name] = Link(
+            link_path=full_source_path.relative_to(prefix),
             target_name=target_name,
-            prefix_type=prefix_type.name,
-            prefix_config=prefix_config,
+            prefix_type=prefix_type,
+            prefix_config=(
+                PublicCustomPrefix.from_custom_prefix(prefix_config)
+                if prefix_config
+                else None
+            ),
         )
-        self.config.links[target_name] = LinkConfig.model_validate(link_config)
+        if prefix_config:
+            self.config.prefixes[prefix_config.name] = prefix_config
+        return target_name
 
-        # Execute Actions
+    def _create_link_system_call(self, link_name: str):
+        link = self.config.links[link_name]
+        if link.prefix_type == PrefixType.HOME:
+            prefix = self.home_path
+        elif link.prefix_type == PrefixType.ROOT:
+            prefix = self.root_path
+        elif link.prefix_type == PrefixType.CUSTOM:
+            if link.prefix_config is None:
+                raise ValueError("Link has prefix type CUSTOM, but no prefix config")
+            if prefix_config := self.config.prefixes.get(link.prefix_config.name):
+                prefix = prefix_config.path
+            else:
+                print(link)
+                print(link.prefix_config.name)
+                print(list(self.config.prefixes.keys()))
+                raise ValueError(
+                    f"Could not find the prefix in link inside the given prefixes."
+                )
+        else:
+            raise ValueError(
+                f"Unreachable. Prefix type '{link.prefix_type}', did not match any conditions"
+            )
+        full_source_path = Path(prefix, link.link_path)
+        full_target_path = Path(self.project_path, link.target_name)
         shutil.move(full_source_path, full_target_path)
         full_source_path.symlink_to(full_target_path)
-        self.config.write_links(Path(self.project_path, ProjectStructure.LINK_CONFIG))
-        self.config.write_prefixes(
-            Path(self.project_path, ProjectStructure.PREFIX_CONFIG)
-        )
 
     def status(self):
         for link_name, link_config in self.config.links.items():
@@ -266,18 +322,18 @@ def dm():
     pass
 
 
-@click.command("create-link")
-@click.option("-s", "--source", type=str, required=True)
-@click.option("-t", "--target", type=str, required=True)
+@click.command("add")
+@click.argument("source_path")
+@click.argument("project_path")
 @click.option("-n", "--name", "target_name", type=str, default=None)
 @click.option("--prefix-type", type=str, default=None)
 @click.option("--prefix", type=str, default=None)
 @click.option("--prefix-name", type=str, default=None)
 @click.option("--prefix-config-type", type=str, default=None)
 @click.option("--prefix-description", type=str, default=None)
-def create_link(
-    source: Path,
-    target: Path,
+def add_link(
+    source_path: Path,
+    project_path: Path,
     target_name: str | None,
     prefix_type: str | None,
     prefix: str | None,
@@ -285,17 +341,21 @@ def create_link(
     prefix_description: str | None,
 ):
     if prefix and prefix_description and prefix_name:
-        prefix_config = PrefixConfig(
+        prefix_config = CustomPrefix(
             name=prefix_name, path=Path(prefix), description=prefix_description
         )
     else:
         prefix_config = None
+    if prefix_type is None:
+        prefix_type_ = PrefixType.HOME
+    else:
+        prefix_type_ = PrefixType.parse(prefix_type)
 
-    dot_project = DotProject.ensure(Path(target))
-    dot_project.create_link(
-        source_path=Path(source),
+    dot_project = DotProject.ensure(Path(project_path))
+    dot_project.add_link(
+        source_path=Path(source_path),
         target_name=target_name,
-        prefix_type=PrefixType.parse(prefix_type),
+        prefix_type=prefix_type_,
         prefix_config=prefix_config,
     )
 
@@ -332,8 +392,8 @@ def setup2(root: str):
     file_b = Path(files_path, "b")
     file_b.touch()
     dm = DotProject.ensure(Path(projects_path, "pm1"))
-    dm.create_link(source_path=file_a)
-    dm.create_link(source_path=file_b)
+    dm.add_link(source_path=file_a)
+    dm.add_link(source_path=file_b)
 
 
 @click.command("status")
@@ -344,13 +404,13 @@ def status(source):
     dot_project.status()
 
 
-@click.command("config")
-@click.option("-s", "--source", type=str, default=".")
-def config(source):
-    source_path = Path(source)
-    dot_project = DotProject.from_path(Path(source_path))
-    pprint(dot_project.config.to_dict())
-    pprint(dot_project.private_config.to_dict())
+# @click.command("config")
+# @click.option("-s", "--source", type=str, default=".")
+# def config(source):
+#     source_path = Path(source)
+#     dot_project = DotProject.from_path(Path(source_path))
+#     pprint(dot_project.config.to_dict())
+#     pprint(dot_project.private_config.to_dict())
 
 
 @click.command("hello")
@@ -359,11 +419,11 @@ def hello():
 
 
 dm.add_command(hello)
-dm.add_command(create_link)
+dm.add_command(add_link)
 dm.add_command(status)
 dm.add_command(setup1)
 dm.add_command(setup2)
-dm.add_command(config)
+# dm.add_command(config)
 
 
 def cli():

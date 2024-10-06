@@ -1,0 +1,5 @@
+click
+pydantic
+pytest
+
+

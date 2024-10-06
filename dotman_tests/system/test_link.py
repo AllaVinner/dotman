@@ -1,7 +1,14 @@
-from dotmanager_tests.test_utils import ensure_folder_tree
+from os import path
+from dotman_tests.test_utils import ensure_folder_tree
 import json
 from pathlib import Path
-from dotmanager.main import DotProject, ProjectStructure, PrefixType, PrefixTypeLiteral
+from dotman.main import (
+    DotProject,
+    ProjectStructure,
+    PrefixType,
+    PrefixTypeLiteral,
+    CustomPrefix,
+)
 import pytest
 
 
@@ -26,9 +33,9 @@ def test_basic_linking(
     project_path = Path(projects_path, "my_project")
     # Test Call
     dot_project = DotProject.ensure(Path(project_path))
-    dot_project._set_home_path(home_path)
-    dot_project._set_root_path(root_path)
-    dot_project.create_link(source_path=source_file, prefix_type=prefix_type)
+    dot_project.set_home_path(home_path)
+    dot_project.set_root_path(root_path)
+    dot_project.add_link(source_path=source_file, prefix_type=prefix_type)
 
     # Assertions
     expected_source_file_path = Path(project_path, source_file.name)
@@ -38,7 +45,7 @@ def test_basic_linking(
     assert Path(source_file).exists()
     assert Path(source_file).is_symlink()
     assert Path(source_file).resolve() == expected_source_file_path
-    config_file = Path(project_path, ProjectStructure.CONFIG)
+    config_file = Path(project_path, ProjectStructure.PUBLIC_CONFIG)
     with open(config_file, "r") as f:
         config = json.load(f)
     assert "links" in config
@@ -63,7 +70,7 @@ def test_basic_linking(
     source_file_2 = Path(files_path, "my_config_2.txt")
     source_file_2_content = "Configuration Content 2 ..."
     ensure_folder_tree(files=[(source_file_2, source_file_2_content)])
-    dot_project.create_link(source_path=source_file_2, prefix_type=prefix_type)
+    dot_project.add_link(source_path=source_file_2, prefix_type=prefix_type)
 
     expected_source_file_2_path = Path(project_path, source_file_2.name)
     assert Path(project_path).exists()
@@ -72,7 +79,7 @@ def test_basic_linking(
     assert Path(source_file_2).exists()
     assert Path(source_file_2).is_symlink()
     assert Path(source_file_2).resolve() == expected_source_file_2_path
-    config_file_2 = Path(project_path, ProjectStructure.CONFIG)
+    config_file_2 = Path(project_path, ProjectStructure.PUBLIC_CONFIG)
     with open(config_file_2, "r") as f:
         config_2 = json.load(f)
     assert "links" in config_2
@@ -114,13 +121,13 @@ def test_custom_linking(is_project_in_home: bool, tmp_path: Path):
     prefix_name = "custom-prefix"
     # Test Call
     dot_project = DotProject.ensure(Path(project_path))
-    dot_project._set_home_path(home_path)
-    dot_project._set_root_path(root_path)
-    dot_project.create_link(
+    dot_project.set_home_path(home_path)
+    dot_project.set_root_path(root_path)
+    custom_prefix = CustomPrefix(name=prefix_name, path=custom_path)
+    dot_project.add_link(
         source_path=source_file,
         prefix_type="CUSTOM",
-        prefix_name=prefix_name,
-        prefix=custom_path,
+        prefix_config=custom_prefix,
     )
 
     # Assertions
@@ -131,7 +138,7 @@ def test_custom_linking(is_project_in_home: bool, tmp_path: Path):
     assert Path(source_file).exists()
     assert Path(source_file).is_symlink()
     assert Path(source_file).resolve() == expected_source_file_path
-    config_file = Path(project_path, ProjectStructure.CONFIG)
+    config_file = Path(project_path, ProjectStructure.PUBLIC_CONFIG)
     with open(config_file, "r") as f:
         config = json.load(f)
     assert "links" in config

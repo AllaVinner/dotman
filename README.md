@@ -8,6 +8,11 @@ manager
 dotlinker
 dotman
 
+## General Guidlines of Development
+- Don't write anything to the system, in functions that do not make that clear.
+   - E.g. `A.from_path()` should create an instance of `A` but not create or delete anything.
+
+
 
 ## Other Projects to Compare with 
 
