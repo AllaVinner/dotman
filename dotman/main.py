@@ -4,14 +4,18 @@ import click
 from typing import List, Dict, Literal, Self, Type, Self, get_args
 import json
 import os
-from enum import Enum, auto
+from enum import Enum, auto, StrEnum
 from pydantic import BaseModel, Field
 
 import shutil
 
 
+class A(BaseModel):
+    fp: Path
+
+
 class ProjectStructure:
-    DOTMANAGER_ROOT = Field(Path(".dotman"))
+    DOTMANAGER_ROOT = Path(".dotman")
     PUBLIC_CONFIG = Path(DOTMANAGER_ROOT, "public_config.json")
     PRIVATE_CONFIG = Path(DOTMANAGER_ROOT, "private_config.json")
     GITIGNORE = Path(DOTMANAGER_ROOT, ".gitignore")
@@ -20,7 +24,7 @@ class ProjectStructure:
 PrefixTypeLiteral = Literal["ROOT", "HOME", "CUSTOM"]
 
 
-class PrefixType(Enum):
+class PrefixType(StrEnum):
     HOME = auto()
     ROOT = auto()
     CUSTOM = auto()
@@ -32,7 +36,7 @@ class PrefixType(Enum):
     @classmethod
     def parse(cls, prefix_type: Self | str) -> Self:
         if isinstance(prefix_type, cls):
-            return cls.__getitem__(prefix_type.name)
+            return cls.__getitem__(prefix_type)
         elif isinstance(prefix_type, str):
             matches = [name for name in cls.names() if name == prefix_type]
             if len(matches) == 0:
@@ -93,7 +97,17 @@ class PublicConfigFile(BaseModel):
     def from_file(cls, path: Path) -> Self:
         with open(path, "r") as f:
             file_obj = json.load(f)
+        print(file_obj)
         return cls.model_validate(file_obj)
+
+
+def default_serialization(obj):
+    if isinstance(obj, Path):
+        return obj.as_posix()
+    if isinstance(obj, Enum):
+        return obj.name
+    else:
+        str(obj)
 
 
 class ProjectConfig(BaseModel):
@@ -101,16 +115,18 @@ class ProjectConfig(BaseModel):
     prefixes: Dict[str, CustomPrefix] = Field(default_factory=lambda: {})
 
     def write_public_config(self, path: Path):
+        # Here is the issue with the posix serialization ...
         links = dict(links={n: v.model_dump() for n, v in self.links.items()})
         with open(path, "w") as f:
-            json.dump(links, f)
+            json_str = json.dumps(links, default=default_serialization)
+            f.write(json_str)
 
     def write_private_config(self, path: Path) -> None:
         private_config = dict(
             prefixes={n: v.model_dump() for n, v in self.prefixes.items()}
         )
         with open(path, "w") as f:
-            json.dump(private_config, f)
+            json.dump(private_config, f, default=default_serialization)
 
     def write(self, project_path: Path) -> None:
         self.write_public_config(

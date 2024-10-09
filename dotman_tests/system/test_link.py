@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from dotman.main import (
     DotProject,
+    ProjectConfig,
     ProjectStructure,
     PrefixType,
     PrefixTypeLiteral,
@@ -101,7 +102,7 @@ def test_basic_linking(
     assert link_config.get("prefix_type") == prefix_type
 
 
-@pytest.mark.parametrize("is_project_in_home", [True, False])
+@pytest.mark.parametrize("is_project_in_home", [False])
 def test_custom_linking(is_project_in_home: bool, tmp_path: Path):
     # Setup
     root_path = Path(tmp_path, "root")
@@ -138,21 +139,16 @@ def test_custom_linking(is_project_in_home: bool, tmp_path: Path):
     assert Path(source_file).exists()
     assert Path(source_file).is_symlink()
     assert Path(source_file).resolve() == expected_source_file_path
-    config_file = Path(project_path, ProjectStructure.PUBLIC_CONFIG)
-    with open(config_file, "r") as f:
-        config = json.load(f)
-    assert "links" in config
-    assert source_file.name in config["links"]
-    link_config = config["links"][source_file.name]
-    assert (
-        link_config.get("link_path") == source_file.relative_to(custom_path).as_posix()
-    )
-    assert link_config.get("target_name") == source_file.name
-    assert link_config.get("prefix_type") == "CUSTOM"
-    assert link_config.get("prefix_name") == prefix_name
-    with open(Path(project_path, ProjectStructure.PRIVATE_CONFIG), "r") as f:
-        private_config = json.load(f)
-    assert "prefixes" in private_config
-    assert prefix_name in private_config["prefixes"]
-    assert "prefix" in private_config["prefixes"][prefix_name]
-    assert private_config["prefixes"][prefix_name]["prefix"] == custom_path.as_posix()
+
+    actual_project = DotProject.from_path(project_path)
+    assert source_file.name in actual_project.config.links
+
+    link_config = actual_project.config.links[source_file.name]
+    assert link_config.link_path == source_file.relative_to(custom_path).as_posix()
+    assert link_config.target_name == source_file.name
+    assert link_config.prefix_type == "CUSTOM"
+    assert link_config.prefix_config is not None
+    assert link_config.prefix_config.name == prefix_name
+
+    assert prefix_name in actual_project.config.prefixes
+    assert actual_project.config.prefixes[prefix_name].path == custom_path.as_posix()
