@@ -117,16 +117,6 @@ class PublicConfigFile(BaseModel):
             f.write(self.model_dump_json())
 
 
-def default_serialization(obj):
-    if isinstance(obj, Path):
-        return obj.as_posix()
-    if isinstance(obj, Enum):
-        # TODO: remove this branch
-        return obj.name
-    else:
-        str(obj)
-
-
 class ProjectConfig(BaseModel):
     links: Dict[str, Link] = Field(default_factory=lambda: {})
     prefixes: Dict[str, CustomPrefix] = Field(default_factory=lambda: {})
