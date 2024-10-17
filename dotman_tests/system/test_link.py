@@ -14,7 +14,7 @@ import pytest
 
 
 @pytest.mark.parametrize("is_project_in_home", [True, False])
-@pytest.mark.parametrize("prefix_type", ["HOME", "ROOT"])
+@pytest.mark.parametrize("prefix_type", ["home", "root"])
 def test_basic_linking(
     prefix_type: PrefixTypeLiteral, is_project_in_home: bool, tmp_path: Path
 ):
@@ -52,12 +52,12 @@ def test_basic_linking(
     assert "links" in config
     assert source_file.name in config["links"]
     link_config = config["links"][source_file.name]
-    if prefix_type == "HOME":
+    if prefix_type == "home":
         assert (
             link_config.get("link_path")
             == source_file.relative_to(home_path).as_posix()
         )
-    elif prefix_type == "ROOT":
+    elif prefix_type == "root":
         assert (
             link_config.get("link_path")
             == source_file.relative_to(root_path).as_posix()
@@ -86,12 +86,12 @@ def test_basic_linking(
     assert "links" in config_2
     assert source_file_2.name in config_2["links"]
     link_config_2 = config_2["links"][source_file_2.name]
-    if prefix_type == "HOME":
+    if prefix_type == "home":
         assert (
             link_config_2.get("link_path")
             == source_file_2.relative_to(home_path).as_posix()
         )
-    elif prefix_type == "ROOT":
+    elif prefix_type == "root":
         assert (
             link_config_2.get("link_path")
             == source_file_2.relative_to(root_path).as_posix()
@@ -127,7 +127,7 @@ def test_custom_linking(is_project_in_home: bool, tmp_path: Path):
     custom_prefix = CustomPrefix(name=prefix_name, path=custom_path)
     dot_project.add_link(
         source_path=source_file,
-        prefix_type="CUSTOM",
+        prefix_type="custom",
         prefix_config=custom_prefix,
     )
 
@@ -144,11 +144,11 @@ def test_custom_linking(is_project_in_home: bool, tmp_path: Path):
     assert source_file.name in actual_project.config.links
 
     link_config = actual_project.config.links[source_file.name]
-    assert link_config.link_path == source_file.relative_to(custom_path).as_posix()
+    assert link_config.link_path == source_file.relative_to(custom_path)
     assert link_config.target_name == source_file.name
-    assert link_config.prefix_type == "CUSTOM"
+    assert link_config.prefix_type == "custom"
     assert link_config.prefix_config is not None
     assert link_config.prefix_config.name == prefix_name
 
     assert prefix_name in actual_project.config.prefixes
-    assert actual_project.config.prefixes[prefix_name].path == custom_path.as_posix()
+    assert actual_project.config.prefixes[prefix_name].path == custom_path

@@ -10,10 +10,6 @@ from pydantic import BaseModel, Field
 import shutil
 
 
-class A(BaseModel):
-    fp: Path
-
-
 class ProjectStructure:
     DOTMANAGER_ROOT = Path(".dotman")
     PUBLIC_CONFIG = Path(DOTMANAGER_ROOT, "public_config.json")
@@ -21,7 +17,7 @@ class ProjectStructure:
     GITIGNORE = Path(DOTMANAGER_ROOT, ".gitignore")
 
 
-PrefixTypeLiteral = Literal["ROOT", "HOME", "CUSTOM"]
+PrefixTypeLiteral = Literal["root", "home", "custom"]
 
 
 class PrefixType(StrEnum):
@@ -32,30 +28,6 @@ class PrefixType(StrEnum):
     @classmethod
     def names(cls) -> List[str]:
         return [e.name for e in cls]
-
-    @classmethod
-    def parse(cls, prefix_type: Self | str) -> Self:
-        if isinstance(prefix_type, cls):
-            return cls.__getitem__(prefix_type)
-        elif isinstance(prefix_type, str):
-            matches = [name for name in cls.names() if name == prefix_type]
-            if len(matches) == 0:
-                s = '", "'
-                raise ValueError(
-                    f"Could not parse value '{prefix_type}' to a PrefixType. "
-                    f'Allowed values are ["{s.join(cls.names())}"].'
-                )
-            elif len(matches) == 1:
-                return cls.__getitem__(matches[0])
-            else:
-                raise ValueError(
-                    "Unreachable code. Found more than one matched PrefixType."
-                )
-        else:
-            raise ValueError(
-                f"Could not parse value '{prefix_type}' to a PrefixType. "
-                f"Is of type '{type(prefix_type)}'."
-            )
 
 
 class CustomPrefix(BaseModel):
@@ -73,6 +45,10 @@ class PrivateConfigFile(BaseModel):
             file_obj = json.load(f)
         return cls.model_validate(file_obj)
 
+    def write(self, path: Path):
+        with open(path, "w") as f:
+            f.write(self.model_dump_json())
+
 
 class PublicCustomPrefix(BaseModel):
     name: str
@@ -87,24 +63,65 @@ class Link(BaseModel):
     link_path: Path
     target_name: str
     prefix_type: PrefixType
+    prefix_config: None | CustomPrefix = Field(default=None)
+
+
+class PublicLink(BaseModel):
+    link_path: Path
+    target_name: str
+    prefix_type: PrefixType
     prefix_config: None | PublicCustomPrefix = Field(default=None)
+
+    @classmethod
+    def from_link(cls, link: Link) -> Self:
+        public_prefix_config = (
+            PublicCustomPrefix(
+                name=link.prefix_config.name, description=link.prefix_config.description
+            )
+            if link.prefix_config
+            else None
+        )
+        return cls(
+            link_path=link.link_path,
+            target_name=link.target_name,
+            prefix_type=link.prefix_type,
+            prefix_config=public_prefix_config,
+        )
+
+    def to_link(self, prefixes: dict[str, CustomPrefix]) -> Link:
+        if self.prefix_config is None:
+            prefix_config = None
+        else:
+            prefix_config = prefixes.get(self.prefix_config.name)
+            if prefix_config is None:
+                raise ValueError("Could not find prefix in available prefixes")
+        return Link(
+            link_path=self.link_path,
+            target_name=self.target_name,
+            prefix_type=self.prefix_type,
+            prefix_config=prefix_config,
+        )
 
 
 class PublicConfigFile(BaseModel):
-    links: Dict[str, Link]
+    links: Dict[str, PublicLink]
 
     @classmethod
     def from_file(cls, path: Path) -> Self:
         with open(path, "r") as f:
             file_obj = json.load(f)
-        print(file_obj)
         return cls.model_validate(file_obj)
+
+    def write(self, path: Path):
+        with open(path, "w") as f:
+            f.write(self.model_dump_json())
 
 
 def default_serialization(obj):
     if isinstance(obj, Path):
         return obj.as_posix()
     if isinstance(obj, Enum):
+        # TODO: remove this branch
         return obj.name
     else:
         str(obj)
@@ -114,19 +131,18 @@ class ProjectConfig(BaseModel):
     links: Dict[str, Link] = Field(default_factory=lambda: {})
     prefixes: Dict[str, CustomPrefix] = Field(default_factory=lambda: {})
 
-    def write_public_config(self, path: Path):
-        # Here is the issue with the posix serialization ...
-        links = dict(links={n: v.model_dump() for n, v in self.links.items()})
-        with open(path, "w") as f:
-            json_str = json.dumps(links, default=default_serialization)
-            f.write(json_str)
+    def get_public_config(self) -> PublicConfigFile:
+        links = {n: PublicLink.from_link(link) for n, link in self.links.items()}
+        return PublicConfigFile(links=links)
 
-    def write_private_config(self, path: Path) -> None:
-        private_config = dict(
-            prefixes={n: v.model_dump() for n, v in self.prefixes.items()}
-        )
-        with open(path, "w") as f:
-            json.dump(private_config, f, default=default_serialization)
+    def get_private_config(self) -> PrivateConfigFile:
+        return PrivateConfigFile(prefixes=self.prefixes)
+
+    def write_public_config(self, path: Path):
+        self.get_public_config().write(path)
+
+    def write_private_config(self, path: Path):
+        self.get_private_config().write(path)
 
     def write(self, project_path: Path) -> None:
         self.write_public_config(
@@ -137,16 +153,28 @@ class ProjectConfig(BaseModel):
         )
 
     @classmethod
+    def from_file_configs(
+        cls, public_config: PublicConfigFile, private_config: PrivateConfigFile
+    ) -> Self:
+        links = {
+            n: link.to_link(private_config.prefixes)
+            for n, link in public_config.links.items()
+        }
+        return cls(links=links, prefixes=private_config.prefixes)
+
+    @classmethod
     def from_path(cls, project_path: Path) -> Self:
         if not Path(project_path, ProjectStructure.DOTMANAGER_ROOT).exists():
             return cls()
-        config = PublicConfigFile.from_file(
+        public_config = PublicConfigFile.from_file(
             Path(project_path, ProjectStructure.PUBLIC_CONFIG)
         )
         private_config = PrivateConfigFile.from_file(
             Path(project_path, ProjectStructure.PRIVATE_CONFIG)
         )
-        return cls(links=config.links, prefixes=private_config.prefixes)
+        return cls.from_file_configs(
+            public_config=public_config, private_config=private_config
+        )
 
 
 GITIGNORE_CONTENT = ProjectStructure.PRIVATE_CONFIG.relative_to(
@@ -157,6 +185,7 @@ GITIGNORE_CONTENT = ProjectStructure.PRIVATE_CONFIG.relative_to(
 class DotProject(BaseModel):
     project_path: Path
     config: ProjectConfig = Field(default_factory=lambda: ProjectConfig())
+    # TODO: Make home and root paths into true non-validate fields. Remove the type hinting
     home_path: Path = Field(default_factory=lambda: Path.home(), exclude=True)
     root_path: Path = Field(default_factory=lambda: Path("/"), exclude=True)
 
@@ -243,7 +272,7 @@ class DotProject(BaseModel):
     ):
         # Harmonize and Validate Input
         full_source_path = source_path.expanduser().resolve()
-        prefix_type = PrefixType.parse(prefix_type or PrefixType.HOME)
+        prefix_type = PrefixType(prefix_type or PrefixType.HOME)
         if prefix_type != PrefixType.CUSTOM and prefix_config is not None:
             raise ValueError(
                 "Only prefix type 'CUSTOM' may have a custom prefix config"
@@ -281,11 +310,7 @@ class DotProject(BaseModel):
             link_path=full_source_path.relative_to(prefix),
             target_name=target_name,
             prefix_type=prefix_type,
-            prefix_config=(
-                PublicCustomPrefix.from_custom_prefix(prefix_config)
-                if prefix_config
-                else None
-            ),
+            prefix_config=prefix_config,
         )
         if prefix_config:
             self.config.prefixes[prefix_config.name] = prefix_config
@@ -365,7 +390,7 @@ def add_link(
     if prefix_type is None:
         prefix_type_ = PrefixType.HOME
     else:
-        prefix_type_ = PrefixType.parse(prefix_type)
+        prefix_type_ = PrefixType(prefix_type)
 
     dot_project = DotProject.ensure(Path(project_path))
     dot_project.add_link(
