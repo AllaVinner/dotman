@@ -47,7 +47,7 @@ class PrivateConfigFile(BaseModel):
 
     def write(self, path: Path):
         with open(path, "w") as f:
-            f.write(self.model_dump_json())
+            f.write(self.model_dump_json(indent=4))
 
 
 class PublicCustomPrefix(BaseModel):
@@ -114,7 +114,7 @@ class PublicConfigFile(BaseModel):
 
     def write(self, path: Path):
         with open(path, "w") as f:
-            f.write(self.model_dump_json())
+            f.write(self.model_dump_json(indent=4))
 
 
 class ProjectConfig(BaseModel):
@@ -209,7 +209,7 @@ class DotProject(BaseModel):
 
     @classmethod
     def init(cls, project_path: Path) -> Self:
-        project_path.mkdir(exist_ok=True)
+        project_path.mkdir(exist_ok=True, parents=True)
         Path(project_path, ProjectStructure.DOTMANAGER_ROOT).mkdir()
         project = cls(project_path=project_path)
         project._write_gitignore()
@@ -289,7 +289,9 @@ class DotProject(BaseModel):
         if full_target_path.exists():
             raise ValueError("Target already exists")
         if not full_source_path.exists():
-            raise ValueError("Source Path does not exist exists")
+            raise ValueError(
+                f"Source Path does not exist exists. Soure Path: {full_source_path}"
+            )
         if not full_source_path.is_relative_to(prefix):
             raise ValueError(
                 "Link prefix, if specified must be relative to source path."
@@ -335,7 +337,7 @@ class DotProject(BaseModel):
 
     def status(self):
         for link_name, link_config in self.config.links.items():
-            if link_config.prefix_type == "HOME":
+            if link_config.prefix_type == "home":
                 full_link_path = Path(Path.home(), link_config.link_path)
             else:
                 raise ValueError("Not implemented")
@@ -348,6 +350,12 @@ class DotProject(BaseModel):
             print("    Target Name: ", link_config.target_name)
 
 
+def clean_dir(path: Path):
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir()
+
+
 @click.group()
 def dm():
     pass
@@ -355,12 +363,11 @@ def dm():
 
 @click.command("add")
 @click.argument("source_path")
-@click.argument("project_path")
+@click.argument("project_path", default=".")
 @click.option("-n", "--name", "target_name", type=str, default=None)
 @click.option("--prefix-type", type=str, default=None)
 @click.option("--prefix", type=str, default=None)
 @click.option("--prefix-name", type=str, default=None)
-@click.option("--prefix-config-type", type=str, default=None)
 @click.option("--prefix-description", type=str, default=None)
 def add_link(
     source_path: Path,
@@ -392,13 +399,12 @@ def add_link(
 
 
 @click.command("setup1")
-def setup1():
-    files_path = Path("./files")
-    projects_path = Path("./projects")
-    if files_path.exists():
-        shutil.rmtree(files_path)
-    if projects_path.exists():
-        shutil.rmtree(Path("./projects"))
+@click.argument("path", default=".")
+def setup1(path):
+    root_path = Path(path)
+    clean_dir(root_path)
+    files_path = Path(root_path, "files")
+    projects_path = Path(root_path, "projects")
     files_path.mkdir()
     projects_path.mkdir()
     Path(files_path, "a").touch()
@@ -425,6 +431,19 @@ def setup2(root: str):
     dm = DotProject.ensure(Path(projects_path, "pm1"))
     dm.add_link(source_path=file_a)
     dm.add_link(source_path=file_b)
+
+
+@click.command("setup3")
+@click.argument("path", default=".")
+def setup3(path):
+    root_path = Path(path)
+    clean_dir(root_path)
+    home_path = Path(root_path, "home")
+    home_path.mkdir()
+    projects_path = Path(home_path, "mydotfiles")
+    projects_path.mkdir()
+    Path(home_path, "a.config").touch()
+    Path(home_path, "b.config").touch()
 
 
 @click.command("status")
@@ -454,6 +473,7 @@ dm.add_command(add_link)
 dm.add_command(status)
 dm.add_command(setup1)
 dm.add_command(setup2)
+dm.add_command(setup3)
 # dm.add_command(config)
 
 
