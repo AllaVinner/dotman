@@ -1,13 +1,107 @@
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pprint import pprint
 from pathlib import Path
 import click
-from typing import List, Dict, Literal, Self, Type, Self, get_args
+from typing import List, Dict, Literal, Self, Self
 import json
-import os
-from enum import Enum, auto, StrEnum
-from pydantic import BaseModel, Field
+from enum import auto, StrEnum
+from pydantic import BaseModel, Field, ValidationError
 
 import shutil
+
+
+def style_path(path_str: str) -> str:
+    segments = path_str.split("/")
+    divider = click.style("/", fg="yellow")
+    return divider.join(segments)
+
+
+def green(s: str) -> str:
+    return click.style(s, fg="green")
+
+
+def red(s: str) -> str:
+    return click.style(s, fg="red")
+
+
+def blue(s: str) -> str:
+    return click.style(s, fg="blue")
+
+
+class DotmanStatus:
+    pass
+
+
+class ConfigStatus(DotmanStatus):
+    pass
+
+
+@dataclass
+class ItemNotFoundStatus(ConfigStatus):
+    item_name: str
+    item_type: str
+    expected_source: str
+    expected_source_type: str
+
+
+@dataclass
+class ValidConfigStatus(ConfigStatus):
+    pass
+
+
+@dataclass
+class LinkStatus(DotmanStatus, ABC):
+    @abstractmethod
+    def style_str(self) -> str:
+        pass
+
+
+@dataclass
+class ValidLinkStatus(LinkStatus):
+    def style_str(self) -> str:
+        return green("Link is valid.")
+
+
+@dataclass
+class LinkNotFoundStatus(LinkStatus):
+    link_path: Path
+
+    def style_str(self):
+        path_str = style_path(self.link_path.as_posix())
+        return red(f"Path does not exist.") + "\nPath: " + path_str
+
+
+@dataclass
+class UnexpectedFileTypeStatus(LinkStatus):
+    file_path: Path
+    expected_file_type: str
+    actual_file_type: str
+
+    def style_str(self):
+        path_str = style_path(self.file_path.as_posix())
+        s = red("Path is of unexpected type. ")
+        s += (
+            f"\nExpected {green(self.expected_file_type)} "
+            f"but found {red(self.actual_file_type)}. Path: {path_str}"
+        )
+        return s
+
+
+@dataclass
+class UnexpectedLinkTargetStatus(LinkStatus):
+    link_path: Path
+    expected_target_path: Path
+    actual_target_path: Path
+
+    def style_str(self):
+        s = red("Link points to unexpected target.")
+        s += (
+            f"\nExpected target path: {style_path(self.expected_target_path.as_posix())}"
+            f"\nActual target path: {style_path(self.actual_target_path.as_posix())}"
+            f"\nLink path: {style_path(self.link_path.as_posix())}"
+        )
+        return s
 
 
 class ProjectStructure:
@@ -64,6 +158,21 @@ class Link(BaseModel):
     target_name: str
     prefix_type: PrefixType
     prefix_config: None | CustomPrefix = Field(default=None)
+
+    @property
+    def full_link_path(self) -> Path:
+        if self.prefix_type == PrefixType.CUSTOM:
+            if self.prefix_config is None:
+                raise ValueError(
+                    f"Prefix config is None, while prefix type is set to {self.prefix_type}"
+                )
+            return Path(self.prefix_config.path, self.link_path)
+        elif self.prefix_type == PrefixType.HOME:
+            return Path(Path.home(), self.link_path)
+        elif self.prefix_type == PrefixType.CUSTOM:
+            return Path("/", self.link_path)
+        else:
+            raise ValueError("Unreachable.")
 
 
 class PublicLink(BaseModel):
@@ -310,44 +419,58 @@ class DotProject(BaseModel):
 
     def _create_link_system_call(self, link_name: str):
         link = self.config.links[link_name]
-        if link.prefix_type == PrefixType.HOME:
-            prefix = self.home_path
-        elif link.prefix_type == PrefixType.ROOT:
-            prefix = self.root_path
-        elif link.prefix_type == PrefixType.CUSTOM:
-            if link.prefix_config is None:
-                raise ValueError("Link has prefix type CUSTOM, but no prefix config")
-            if prefix_config := self.config.prefixes.get(link.prefix_config.name):
-                prefix = prefix_config.path
-            else:
-                print(link)
-                print(link.prefix_config.name)
-                print(list(self.config.prefixes.keys()))
-                raise ValueError(
-                    f"Could not find the prefix in link inside the given prefixes."
-                )
-        else:
-            raise ValueError(
-                f"Unreachable. Prefix type '{link.prefix_type}', did not match any conditions"
-            )
-        full_source_path = Path(prefix, link.link_path)
         full_target_path = Path(self.project_path, link.target_name)
-        shutil.move(full_source_path, full_target_path)
-        full_source_path.symlink_to(full_target_path)
+        shutil.move(link.full_link_path, full_target_path)
+        link.full_link_path.symlink_to(full_target_path)
 
-    def status(self):
-        for link_name, link_config in self.config.links.items():
-            if link_config.prefix_type == "home":
-                full_link_path = Path(Path.home(), link_config.link_path)
+
+#### FUNCITONS ########
+
+
+def get_link_status(link: Link, project_path: Path) -> LinkStatus:
+    # TODO: HERE: the links is not the full path here... this should be though through.
+    # Add this in t
+    # # Check prefix
+    # if link.prefix_type == PrefixType.CUSTOM:
+    #     if link.prefix_config is None:
+    #         raise ValueError()
+    #     elif link.prefix_config.name not in self.config.prefixes:
+    #         raise DotmanItemNotFound(
+    #             f"Link {link_name} uses custom prefix {link.prefix_config.name}, which cannot be found amoungst the available prefixes."
+    #         )
+    # Source
+    target_path = Path(project_path, link.target_name)
+    if not target_path.exists():
+        return LinkNotFoundStatus(link_path=target_path)
+    # Link
+    if not link.full_link_path.is_symlink():
+        if not link.full_link_path.exists(follow_symlinks=False):
+            return LinkNotFoundStatus(link_path=link.full_link_path)
+        else:
+            if link.full_link_path.is_file():
+                actual_file_type = "file"
+            elif link.full_link_path.is_dir():
+                actual_file_type = "directory"
             else:
-                raise ValueError("Not implemented")
+                raise ValidationError(
+                    "Unreachable. Path was not symlink, file, nor directory. "
+                    f"Path: {link.full_link_path.as_posix()}"
+                )
+            return UnexpectedFileTypeStatus(
+                file_path=link.full_link_path,
+                expected_file_type="symbolic link",
+                actual_file_type=actual_file_type,
+            )
+    if link.full_link_path.resolve() != target_path.resolve():
+        return UnexpectedLinkTargetStatus(
+            link_path=link.full_link_path,
+            expected_target_path=target_path.resolve(),
+            actual_target_path=link.full_link_path.resolve(),
+        )
+    return ValidLinkStatus()
 
-            print("Link Name: ", link_name)
-            print("    Link Path: ", link_config.link_path)
-            print("    Prefix Type: ", link_config.prefix_type)
-            print("    Link exists: ", Path(full_link_path).exists())
-            print("    Link Target: ", Path(link_config.link_path).resolve().as_posix())
-            print("    Target Name: ", link_config.target_name)
+
+# Styles
 
 
 def clean_dir(path: Path):
@@ -401,6 +524,7 @@ def add_link(
 @click.command("setup1")
 @click.argument("path", default=".")
 def setup1(path):
+    # Setup for trying out `dotman add ...`
     root_path = Path(path)
     clean_dir(root_path)
     files_path = Path(root_path, "files")
@@ -436,6 +560,7 @@ def setup2(root: str):
 @click.command("setup3")
 @click.argument("path", default=".")
 def setup3(path):
+    # Setup for trying out `dotman add ...`
     root_path = Path(path)
     clean_dir(root_path)
     home_path = Path(root_path, "home")
@@ -451,7 +576,7 @@ def setup3(path):
 def status(source):
     source_path = Path(source)
     dot_project = DotProject.ensure(Path(source_path))
-    dot_project.status()
+    # dot_project.status()
 
 
 # @click.command("config")
@@ -461,6 +586,55 @@ def status(source):
 #     dot_project = DotProject.from_path(Path(source_path))
 #     pprint(dot_project.config.to_dict())
 #     pprint(dot_project.private_config.to_dict())
+
+
+@click.command("link-status")
+@click.argument("source")
+@click.option("-v", "--verbose", is_flag=True, default=False)
+def link_status(source, verbose):
+    source_path = Path(source).resolve()
+    dot_project = DotProject.from_path(Path(source_path).parent)
+    link_matches = [
+        (n, l)
+        for n, l in dot_project.config.links.items()
+        if l.target_name == source_path.name
+    ]
+    if len(link_matches) == 0:
+        status = ItemNotFoundStatus(
+            item_name=source_path.name,
+            item_type="link",
+            expected_source=source_path.parent.as_posix(),
+            expected_source_type="project",
+        )
+        click.echo(
+            red(f"Link could not be found in project {source_path.parent.name}.")
+        )
+        return
+    elif len(link_matches) == 1:
+        link_name = link_matches[0][0]
+        link = link_matches[0][1]
+    else:
+        raise ValueError(
+            f"Found more than one link with target name {source_path.name}. Unreachable state."
+        )
+    status = get_link_status(link, dot_project.project_path)
+    if isinstance(status, ValidLinkStatus):
+        s = green(f"Link {link_name} in project {source_path.parent.name} is valid.")
+    else:
+        s = red(f"Link {link_name} in project {source_path.parent.name} is invalid.")
+        s += "\n"
+        s += status.style_str()
+    click.echo(s)
+
+
+"""
+Link <link> in project <project> is valid
+
+Link <link> in project <project> is invalid.
+Found the following issue.
+<str(status)>
+Full path of project: <project>
+"""
 
 
 @click.command("hello")
@@ -474,6 +648,7 @@ dm.add_command(status)
 dm.add_command(setup1)
 dm.add_command(setup2)
 dm.add_command(setup3)
+dm.add_command(link_status)
 # dm.add_command(config)
 
 
