@@ -23,14 +23,12 @@ def init_project(path):
 
 @click.command("add")
 @click.argument("link-source", type=click.Path(path_type=Path))
-@click.option("-f", "--force-overwrite", type=bool, is_flag=True, default=False)
-@click.option(
-    "-p",
-    "--project",
+@click.argument(
     "project_path",
     type=click.Path(path_type=Path),
     default=Path("."),
 )
+@click.option("-f", "--force-overwrite", type=bool, is_flag=True, default=False)
 @click.option("-n", "--targe-name", type=str, default=None)
 def add_link(
     link_source: Path, project_path: Path, target_name: str, force_overwrite: bool
