@@ -12,8 +12,5 @@ version = "0.0.1" # Dynamicly set
 description = "Dot file manager"
 requires-python = ">= 3.8"
 
-[tool.hatch.version]
-path = "dotman/__init__.py"
-
 [project.scripts]
-dotman = "dotman.main:cli"
+dotman = "dotman.cli:cli"
