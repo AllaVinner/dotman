@@ -16,20 +16,16 @@ def hello():
 
 
 @click.command("init")
-@click.argument("path", type=click.Path(path_type=Path), default=Path("."))
-def init_project(path):
-    Project.init(project_path=path)
+@click.argument("project-path", type=click.Path(path_type=Path), default=Path("."))
+def init_project(project_path: Path):
+    Project.init(project_path=project_path)
 
 
 @click.command("add")
 @click.argument("link-source", type=click.Path(path_type=Path))
-@click.argument(
-    "project_path",
-    type=click.Path(path_type=Path),
-    default=Path("."),
-)
-@click.option("-f", "--force-overwrite", type=bool, is_flag=True, default=False)
+@click.argument("project-path", type=click.Path(path_type=Path), default=Path("."))
 @click.option("-n", "--targe-name", type=str, default=None)
+@click.option("-f", "--force-overwrite", type=bool, is_flag=True, default=False)
 def add_link(
     link_source: Path, project_path: Path, target_name: str, force_overwrite: bool
 ):
@@ -37,9 +33,8 @@ def add_link(
     if force_overwrite:
         if link_source.is_symlink():
             link_source.unlink()
-        else:
-            if link_source.exists():
-                shutil.rmtree(link_source)
+        elif link_source.exists():
+            shutil.rmtree(link_source)
 
     project.add_link(source=link_source, target_name=target_name)
 
