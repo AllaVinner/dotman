@@ -107,3 +107,18 @@ class Project:
     def restore(self):
         for link_name in self.config.links:
             self.restore_link(link_name)
+
+    def set_link(self, source_path: Path, target_name: str) -> None:
+        target_path = Path(self.path, target_name)
+        if not target_path.exists():
+            raise ProjectException(f"Link target {target_name} does not exist.")
+        if source_path.exists():
+            raise ProjectException(f"Source exists. {source_path}")
+        try:
+            home_to_source_path = source_path.relative_to(self._home)
+        except ValueError:
+            raise ProjectException("Source must be relative to home.")
+
+        source_path.symlink_to(target_path.absolute())
+        self.config.links[target_name] = Link(source=home_to_source_path)
+        self.write()
