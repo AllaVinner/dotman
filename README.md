@@ -17,15 +17,15 @@ dotman restore ./dotfileproject
 ```
 
 ## How It Works
-An intrinsic part of `dotman` is the **dotman project**, or simply project.
-A project is any folder with a dotman configuration file, i.e. `.dotman.json`.
-When a link is added, see [Add](#add), the original file or folder is moved to the project 
-folder and an entry in the configuration file is added.
-Finally, a symlink is created where the orifinal object previously recided.
+A dotman project is any folder containing a `.dotman.json` file.
+When a link is added, see [Add](#add), the original file or folder is moved to the project, 
+an entry in the configuration file is added, and 
+a symlink from the original to the moved object is created.
 
-The link entry in the configuration file keeps the link path as relative to your home path,
+The link entry in the configuration file saves the link path as relative to your home path,
 and the target is stored as the name of the moved file.
-This means that it is possible to move a dotman project, call `dotman restore`, and have it working again.
+This means that it is possible to move a dotman project, and 
+then restoring it using `dotman restore`.
 
 
 ## Example
