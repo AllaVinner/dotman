@@ -91,7 +91,44 @@ dotman restore ~/configs/bash
 
 ## Commands
 
+### Init
+Init is used to create a dotfile project.
+It simply creats a `.dotman.json` file in the project directory.
+
+
 ### Add
+Adding does three things:
+- Move the object to be added to the dotfile project
+- Add the original path of the object to the dotman configuration file
+- Creates a symlink from the original to the new path of the object
+
+
+**Example**
+```
+~
+├── .bashrc
+└── dotfiles
+    └── bash
+        └── .dotman.json # {links: {}}
+```
+
+```bash
+dotman add ~/.bashrc ~/dotfiles/bash`
+```
+
+```
+~
+├── .bashrc -> ~/dotfiles/bash/.bashrc
+└── dotfiles
+    └── bash
+        ├── .bashrc
+        └── .dotman.json # {"links": {".bashrc": ".bashrc"}}
+```
+
+#### Restore
+Restoring a dotfile project, creates the links specified in the configuration file.
+
+
 
 ## As Module
 `python -m dotman`
