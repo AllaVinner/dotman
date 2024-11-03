@@ -27,19 +27,33 @@ class Project:
     path: Path
     config: Config
     _home = Path.home()
-    CONFIG_FILE = ".dotman.json"
+    _dotman_dir = ".dotman"
+    _config_file = "config.json"
+
+    @property
+    def config_path(self) -> Path:
+        return Path(self._dotman_dir, self._config_file)
+
+    @property
+    def full_config_path(self) -> Path:
+        return Path(self.path, self.config_path)
+
+    @property
+    def full_dotman_path(self) -> Path:
+        return Path(self.path, self._dotman_dir)
 
     @classmethod
     def init(cls, project_path: Path) -> Self:
         if project_path.is_file():
             raise ProjectException("Given project path already exists as a file.")
-        elif project_path.is_dir():
-            if len(os.listdir(project_path)) > 0:
-                raise ProjectException("Project is not empty.")
-        else:
+        elif not project_path.is_dir():
             project_path.mkdir(parents=True)
         config = Config(links={})
         self = cls(path=project_path, config=config)
+        dotman_path = Path(project_path, cls._dotman_dir)
+        if dotman_path.exists():
+            raise ProjectException("Given path is already a dotman project.")
+        dotman_path.mkdir()
         self.write()
         return self
 
@@ -47,7 +61,7 @@ class Project:
     def from_path(cls, project_path: Path) -> Self:
         if not project_path.is_dir():
             raise ProjectException("Given project path is not a directory")
-        config_file = Path(project_path, cls.CONFIG_FILE)
+        config_file = Path(project_path, cls._dotman_dir, cls._config_file)
         if not config_file.is_file():
             raise ProjectException("Cannot find config in project")
         with open(config_file, "r") as f:
@@ -56,7 +70,7 @@ class Project:
         return cls(path=project_path, config=config)
 
     def write(self):
-        with open(Path(self.path, self.CONFIG_FILE), "w") as f:
+        with open(Path(self.path, self._dotman_dir, self._config_file), "w") as f:
             f.write(self.config.model_dump_json())
 
     def add_link(self, source: Path, target_name: str | None = None) -> None:
