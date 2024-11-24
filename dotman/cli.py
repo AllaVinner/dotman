@@ -1,24 +1,8 @@
-from os import link
+import os
 import shutil
 import click
 from pathlib import Path
 from dotman.main import Project
-
-
-@click.group()
-def cli():
-    """Dotman: a very simple dotfile manager
-
-    Add an exising dotfile to a repo - see `add`
-
-    Restore the neccesary links on a new machine - see `restore`
-    """
-    pass
-
-
-@click.command("hello")
-def hello():
-    print("hello")
 
 
 @click.command("init", short_help="Init a dotman project")
@@ -26,7 +10,7 @@ def hello():
 def init_project(project_path: Path):
     """Init a dotman project in PROJECT_PATH
 
-    Either in an  empty directory. Then add links using `add`.
+    Either in an empty directory. Then add links using `add`.
 
     Or initiate in an existing dotfile folder.
     Then define the exising dotfile links using `set`.
@@ -39,13 +23,15 @@ def init_project(project_path: Path):
 @click.argument("project-path", type=click.Path(path_type=Path), default=Path("."))
 @click.option(
     "-n",
-    "--targe-name",
+    "--target-name",
     type=str,
     default=None,
-    help="Name of link and the dotfile after moving. Defaults to the source name.",
+    help="Name of link and the dotfile after moving. Defaults to the name of the link source file.",
 )
 def add_link(
-    link_source: Path, project_path: Path, target_name: str, force_overwrite: bool
+    link_source: Path,
+    project_path: Path,
+    target_name: str | None,
 ):
     """Add a dotfile in LINK_SOURCE to project in PROJECT_PATH"""
     project = Project.from_path(project_path=project_path)
@@ -84,7 +70,70 @@ def set_link(source_path: Path, target_path: Path, force_overwrite):
     project.set_link(source_path, target_path.name)
 
 
+@click.group()
+def setup():
+    """Playground tests"""
+    pass
+
+
+@click.command("new-config", short_help="You have a new config you want to track.")
+@click.argument("home-folder", type=click.Path(path_type=Path))
+def setup_new_config(home_folder: Path):
+    if home_folder.exists() and len(os.listdir(home_folder)) > 0:
+        raise FileExistsError("Home folder exist and is not empty")
+    home_folder.mkdir(parents=True, exist_ok=True)
+    projects_folder = Path(home_folder, "projects")
+    new_config_folder = Path(home_folder, "configs")
+    new_config_file = Path(new_config_folder, "config.toml")
+    projects_folder.mkdir()
+    new_config_folder.mkdir()
+    new_config_file.touch()
+
+
+@click.command(
+    "new-machine", short_help="You have a new machine, and newly dowloaded dot files."
+)
+@click.argument("home-folder", type=click.Path(path_type=Path))
+def setup_new_config(home_folder: Path):
+    if home_folder.exists() and len(os.listdir(home_folder)) > 0:
+        raise FileExistsError("Home folder exist and is not empty")
+    home_folder.mkdir(parents=True, exist_ok=True)
+    docs_folder = Path(home_folder, "docs")
+    config_folder = Path(home_folder, "configs")
+    git_file = Path(config_folder, "gitconfig.toml")
+    bash_file = Path(config_folder, "bashrc")
+    nvim_folder = Path(config_folder, "nvim")
+    nvim_file = Path(nvim_folder, "init.nvim")
+    docs_folder.mkdir()
+    config_folder.mkdir()
+    git_file.touch()
+    bash_file.touch()
+    nvim_folder.mkdir()
+    nvim_file.touch()
+
+    project = Project.init(Path(docs_folder, "my-dotfiles"))
+    project.add_link(git_file)
+    project.add_link(bash_file)
+    project.add_link(nvim_folder)
+    shutil.rmtree(config_folder)
+
+
+setup.add_command(setup_new_config)
+
+
+@click.group()
+def cli():
+    """Dotman: a very simple dotfile manager
+
+    Add an exising dotfile to a repo - see `add`
+
+    Restore the neccesary links on a new machine - see `restore`
+    """
+    pass
+
+
 cli.add_command(init_project)
 cli.add_command(add_link)
 cli.add_command(restore)
 cli.add_command(set_link)
+cli.add_command(setup)
