@@ -94,7 +94,7 @@ def setup_new_config(home_folder: Path):
     "new-machine", short_help="You have a new machine, and newly dowloaded dot files."
 )
 @click.argument("home-folder", type=click.Path(path_type=Path))
-def setup_new_config(home_folder: Path):
+def setup_new_machine(home_folder: Path):
     if home_folder.exists() and len(os.listdir(home_folder)) > 0:
         raise FileExistsError("Home folder exist and is not empty")
     home_folder.mkdir(parents=True, exist_ok=True)
@@ -119,6 +119,7 @@ def setup_new_config(home_folder: Path):
 
 
 setup.add_command(setup_new_config)
+setup.add_command(setup_new_machine)
 
 
 @click.group()
