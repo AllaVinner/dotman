@@ -17,6 +17,6 @@ def ensure_folder_tree(
         with open(path, "w") as f:
             f.write(content)
     for folder in folders:
-        assert folder.exists, f"Path '{path.as_posix()}' should exists by now"
+        assert folder.exists, f"Path '{folder.as_posix()}' should exists by now"
     for path, content in files:
         assert path.exists, f"Path '{path.as_posix()}' should exists by now"
