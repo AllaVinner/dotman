@@ -1,8 +1,9 @@
 import os
+import sys
 import shutil
 import click
 from pathlib import Path
-from dotman.main import Project
+from dotman.main import Project, ProjectException
 
 
 @click.command("init", short_help="Init a dotman project")
@@ -34,7 +35,11 @@ def add_link(
     target_name: str | None,
 ):
     """Add a dotfile in LINK_SOURCE to project in PROJECT_PATH"""
-    project = Project.from_path(project_path=project_path)
+    try:
+        project = Project.from_path(project_path=source_path)
+    except ProjectException as e:
+        click.echo(e)
+        sys.exit(1)
     project.add_link(source=link_source, target_name=target_name)
 
 
@@ -48,7 +53,11 @@ def add_link(
 )
 def restore(project_path, target_name):
     """Restore links in PROJECT_PATH"""
-    project = Project.from_path(project_path=project_path)
+    try:
+        project = Project.from_path(project_path=project_path)
+    except ProjectException as e:
+        click.echo(e)
+        sys.exit(1)
     if len(target_name) == 0:
         target_name = list(project.config.links)
     for link_name in target_name:
@@ -66,8 +75,26 @@ def set_link(source_path: Path, target_path: Path, force_overwrite):
             source_path.unlink()
         elif source_path.exists():
             shutil.rmtree(source_path)
-    project = Project.from_path(project_path=target_path.parent)
+    try:
+        project = Project.from_path(project_path=target_path.parent)
+    except ProjectException as e:
+        click.echo(e)
+        sys.exit(1)
     project.set_link(source_path, target_path.name)
+
+
+@click.command("status", short_help="Updates dotman project with exising dotfiles.")
+@click.argument("source-path", type=click.Path(path_type=Path), default=Path("."))
+def status(source_path: Path):
+    """Updates dotman project with link from SOURCE_PATH to existing dotfile in TARGET_PATH"""
+    try:
+        project = Project.from_path(project_path=source_path)
+    except ProjectException as e:
+        click.echo(e)
+        sys.exit(1)
+    status = project.status()
+    for p, s in status.items():
+        click.echo(f"{p}: {s}")
 
 
 @click.group()
@@ -136,5 +163,6 @@ def cli():
 cli.add_command(init_project)
 cli.add_command(add_link)
 cli.add_command(restore)
+cli.add_command(status)
 cli.add_command(set_link)
 cli.add_command(setup)

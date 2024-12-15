@@ -120,3 +120,21 @@ class Project:
         source_path.symlink_to(target_path.absolute())
         self.config.links[target_name] = Link(source=home_to_source_path)
         self.write()
+
+    def status(self):
+        link_status_dict = {}
+        for target_name, link in self.config.links.items():
+            full_path = Path(self._home, link.source)
+            if not self.path.joinpath(target_name).exists():
+                link_status = "Dotfile not in project folder."
+            elif not full_path.is_symlink():
+                link_status = "Link does not exist."
+            elif (
+                not full_path.resolve().relative_to(self.path.resolve()).as_posix()
+                == target_name
+            ):
+                link_status = "Link does not point to project dotfile."
+            else:
+                link_status = "Complete"
+            link_status_dict[target_name] = link_status
+        return link_status_dict
