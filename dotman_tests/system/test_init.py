@@ -41,6 +41,28 @@ def test_existing_folder(tmp_path):
     assert os.listdir(project_path) == [config_path.name]
 
 
+def test_existing_folder_as_symlink(tmp_path):
+    home = Path(tmp_path, "home")
+    projects = Path(home, "projects")
+    other_project = Path(projects, "dst_vim")
+    ensure_folder_tree(folders=[other_project])
+    project_path = Path(projects, "src_vim")
+    project_path.symlink_to(other_project)
+    assert project_path.exists()
+    assert project_path.is_symlink()
+    assert project_path.is_dir()
+    project = Project.init(project_path)
+    assert project_path.is_symlink()
+    assert project_path.is_dir()
+    config_path = Path(project_path, project._config_file)
+    assert config_path.is_file()
+    with open(config_path, "r") as f:
+        config_json = json.load(f)
+    config = Config.model_validate(config_json)
+    assert config == project.config
+    assert os.listdir(project_path) == [config_path.name]
+
+
 def test_err_existing_folder_as_file(tmp_path):
     home = Path(tmp_path, "home")
     projects = Path(home, "projects")
@@ -48,19 +70,6 @@ def test_err_existing_folder_as_file(tmp_path):
     ensure_folder_tree(folders=[projects], files=[(project_path, "Some")])
     assert project_path.exists()
     assert project_path.is_file()
-    with pytest.raises(ProjectException):
-        _project = Project.init(project_path)
-
-
-def test_err_existing_folder_as_symlink(tmp_path):
-    home = Path(tmp_path, "home")
-    projects = Path(home, "projects")
-    ensure_folder_tree(folders=[projects])
-    project_path = Path(projects, "vim.txt")
-    project_path.symlink_to(home)
-    assert project_path.exists()
-    assert project_path.is_symlink()
-    assert project_path.is_dir()
     with pytest.raises(ProjectException):
         _project = Project.init(project_path)
 

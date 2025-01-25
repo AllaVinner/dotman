@@ -9,13 +9,13 @@ from dotman.main import Project, ProjectException
 @click.command("init", short_help="Init a dotman project")
 @click.argument("project-path", type=click.Path(path_type=Path), default=Path("."))
 def init_project(project_path: Path):
-    f"""Init a dotman project in PROJECT_PATH
+    """Init a dotman project in PROJECT_PATH
 
     Either in an empty directory. Then add links using `add`.
     Or initiate in an existing dotfile folder.
     Then define the exising dotfile links using `set`.
 
-    The init command simply creates a {Project._config_file}.
+    The init command simply creates a config file in the project path.
     """
     try:
         Project.init(project_path=project_path)

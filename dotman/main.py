@@ -1,13 +1,21 @@
 from pydantic import BaseModel, Field, config
-import click
 from dataclasses import dataclass
-import os
 from typing import Self
 
 import shutil
 from dataclasses import dataclass
-import json
 from pathlib import Path
+
+import logging
+
+logging.basicConfig(
+    encoding="utf-8",
+    format="%(asctime)s %(levelname)-8s %(name)-15s %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.DEBUG,
+)
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectException(Exception):
@@ -40,13 +48,19 @@ class Project:
     @classmethod
     def init(cls, project_path: Path) -> Self:
         if project_path.is_file():
-            raise ProjectException("Given project path already exists as a file.")
-        elif not project_path.is_dir():
+            raise ProjectException(
+                f"Given project path already exists as a file. Project path: {project_path.as_posix}"
+            )
+        if not project_path.exists():
+            logger.info(f"Creating project folder at: {project_path.as_posix()}")
             project_path.mkdir(parents=True)
         config = Config(links={})
         self = cls(path=project_path, config=config)
         if Path(project_path, cls._config_file).exists():
-            raise ProjectException("Given path is already a dotman project.")
+            raise ProjectException(
+                f"Given project path is already a dotman project. "
+                f"Project path: {project_path.as_posix()}"
+            )
         self.write()
         return self
 
@@ -63,7 +77,9 @@ class Project:
         return cls(path=project_path, config=config)
 
     def write(self):
-        with open(Path(self.path, self._config_file), "w") as f:
+        config_path = Path(self.path, self._config_file)
+        logger.info(f"Writing config file at: {config_path.as_posix()}")
+        with open(config_path, "w") as f:
             f.write(self.config.model_dump_json())
 
     def add_link(self, source: Path, target_name: str | None = None) -> None:
