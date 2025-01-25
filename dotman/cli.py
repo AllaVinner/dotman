@@ -4,10 +4,26 @@ import shutil
 import click
 from pathlib import Path
 from dotman.main import Project, ProjectException
+import functools
+
+
+def dotman_cli_cmd(func):
+    """Wrapps function in try/except to display errors nicely to users."""
+
+    @functools.wraps(func)
+    def wrapper_timer(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except ProjectException as e:
+            click.echo(e)
+            sys.exit(1)
+
+    return wrapper_timer
 
 
 @click.command("init", short_help="Init a dotman project")
 @click.argument("project-path", type=click.Path(path_type=Path), default=Path("."))
+@dotman_cli_cmd
 def init_project(project_path: Path):
     """Init a dotman project in PROJECT_PATH
 
@@ -17,11 +33,7 @@ def init_project(project_path: Path):
 
     The init command simply creates a config file in the project path.
     """
-    try:
-        Project.init(project_path=project_path)
-    except ProjectException as e:
-        click.echo(e)
-        sys.exit(1)
+    Project.init(project_path=project_path)
 
 
 @click.command("add", short_help="Add a dotfile to a dotman project")
@@ -34,17 +46,14 @@ def init_project(project_path: Path):
     default=None,
     help="Name of link and the dotfile after moving. Defaults to the name of the link source file.",
 )
+@dotman_cli_cmd
 def add_link(
     link_source: Path,
     project_path: Path,
     target_name: str | None,
 ):
     """Add a dotfile in LINK_SOURCE to project in PROJECT_PATH"""
-    try:
-        project = Project.from_path(project_path=source_path)
-    except ProjectException as e:
-        click.echo(e)
-        sys.exit(1)
+    project = Project.from_path(project_path=project_path)
     project.add_link(source=link_source, target_name=target_name)
 
 

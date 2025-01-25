@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, config
+from pydantic import BaseModel, Field, config, ValidationError
 from dataclasses import dataclass
 from typing import Self
 
@@ -49,7 +49,8 @@ class Project:
     def init(cls, project_path: Path) -> Self:
         if project_path.is_file():
             raise ProjectException(
-                f"Given project path already exists as a file. Project path: {project_path.as_posix}"
+                f"Given project path already exists as a file. "
+                f"Project path: {project_path.as_posix}"
             )
         if not project_path.exists():
             logger.info(f"Creating project folder at: {project_path.as_posix()}")
@@ -67,13 +68,26 @@ class Project:
     @classmethod
     def from_path(cls, project_path: Path) -> Self:
         if not project_path.is_dir():
-            raise ProjectException("Given project path is not a directory")
+            raise ProjectException(
+                f"Given project path is not a directory. "
+                f"Project Path: {project_path.as_posix()}"
+            )
         config_file = Path(project_path, cls._config_file)
         if not config_file.is_file():
-            raise ProjectException("Cannot find config in project")
+            raise ProjectException(
+                f"Cannot find config in project. "
+                f"Project Path: {project_path.as_posix()}"
+            )
         with open(config_file, "r") as f:
             config_content = f.read()
-        config = Config.model_validate_json(config_content)
+        try:
+            config = Config.model_validate_json(config_content)
+        except ValidationError as e:
+            raise ProjectException(
+                f"{e}"
+                f"Config file at {config_file.as_posix()} is corrupted. "
+                f"Parsing failed with the above validation error."
+            )
         return cls(path=project_path, config=config)
 
     def write(self):
@@ -83,7 +97,13 @@ class Project:
             f.write(self.config.model_dump_json())
 
     def add_link(self, source: Path, target_name: str | None = None) -> None:
+        # TODO: Fix issue where you try to add the same source twice,
+        # but with different target names.
         if target_name is None:
+            logger.debug(
+                f"Setting target name to {source.name}, "
+                f"inferred from source path {source.as_posix()}"
+            )
             target_name = source.name
         if target_name in self.config.links:
             raise ProjectException(
@@ -95,14 +115,20 @@ class Project:
         if not source.exists():
             raise ProjectException(f"Source {source} does not exists.")
         try:
-            home_to_source_path = source.absolute().relative_to(self._home)
+            # TODO: Make some tests to see how resolve
+            # behave over .. and symlinks
+            home_to_source_path = source.resolve().relative_to(self._home)
         except ValueError:
+            # TODO: Allow for root paths, maybe more?
             raise ProjectException("Source must be relative to home.")
-
+        logger.info(f"Moving source {source.as_posix()} to {target_path.as_posix()}.")
         shutil.move(source, target_path)
+        logger.info(
+            f"Creating symlink from {source.as_posix()} to {target_path.as_posix()}."
+        )
         source.symlink_to(target_path.absolute())
 
-        self.config.links[target_name] = Link(source=home_to_source_path)
+        self.config.links[target_name] = Link(source=Path("~", home_to_source_path))
         self.write()
 
     def restore_link(self, link_name: str) -> None:
