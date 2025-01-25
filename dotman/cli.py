@@ -9,14 +9,19 @@ from dotman.main import Project, ProjectException
 @click.command("init", short_help="Init a dotman project")
 @click.argument("project-path", type=click.Path(path_type=Path), default=Path("."))
 def init_project(project_path: Path):
-    """Init a dotman project in PROJECT_PATH
+    f"""Init a dotman project in PROJECT_PATH
 
     Either in an empty directory. Then add links using `add`.
-
     Or initiate in an existing dotfile folder.
     Then define the exising dotfile links using `set`.
+
+    The init command simply creates a {Project._config_file}.
     """
-    Project.init(project_path=project_path)
+    try:
+        Project.init(project_path=project_path)
+    except ProjectException as e:
+        click.echo(e)
+        sys.exit(1)
 
 
 @click.command("add", short_help="Add a dotfile to a dotman project")
