@@ -8,13 +8,6 @@ from pathlib import Path
 
 import logging
 
-logging.basicConfig(
-    encoding="utf-8",
-    format="%(asctime)s %(levelname)-8s %(name)-15s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    level=logging.DEBUG,
-)
-
 logger = logging.getLogger(__name__)
 
 

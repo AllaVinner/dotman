@@ -1,8 +1,10 @@
 import os
+import logging
 import sys
 import shutil
 import click
 from pathlib import Path
+import dotman
 from dotman.main import Project, ProjectException
 import functools
 
@@ -11,14 +13,26 @@ def dotman_cli_cmd(func):
     """Wrapps function in try/except to display errors nicely to users."""
 
     @functools.wraps(func)
-    def wrapper_timer(*args, **kwargs):
+    @click.option(
+        "-l",
+        "--log-level",
+        type=str,
+        default=None,
+        help="Set log level of command",
+    )
+    def wrapper_dotman(*args, **kwargs):
+        log_level = kwargs["log_level"]
+        if log_level:
+            if log_level == "d":
+                dotman.logger.setLevel(logging.DEBUG)
+        kwargs = {k: v for k, v in kwargs.items() if k != "log_level"}
         try:
             return func(*args, **kwargs)
         except ProjectException as e:
             click.echo(e)
             sys.exit(1)
 
-    return wrapper_timer
+    return wrapper_dotman
 
 
 @click.command("init", short_help="Init a dotman project")
@@ -33,6 +47,7 @@ def init_project(project_path: Path):
 
     The init command simply creates a config file in the project path.
     """
+
     Project.init(project_path=project_path)
 
 
