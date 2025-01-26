@@ -80,6 +80,7 @@ def add_link(
     multiple=True,
     help="Name of link and the dotfile. If left out, all links will be restored.",
 )
+@dotman_cli_cmd
 def restore(project_path, target_name):
     """Restore links in PROJECT_PATH"""
     try:
@@ -97,6 +98,7 @@ def restore(project_path, target_name):
 @click.argument("source-path", type=click.Path(path_type=Path))
 @click.argument("target-path", type=click.Path(path_type=Path))
 @click.option("-f", "--force-overwrite", type=bool, is_flag=True, default=False)
+@dotman_cli_cmd
 def set_link(source_path: Path, target_path: Path, force_overwrite):
     """Updates dotman project with link from SOURCE_PATH to existing dotfile in TARGET_PATH"""
     if force_overwrite:
@@ -114,6 +116,7 @@ def set_link(source_path: Path, target_path: Path, force_overwrite):
 
 @click.command("status", short_help="Updates dotman project with exising dotfiles.")
 @click.argument("source-path", type=click.Path(path_type=Path), default=Path("."))
+@dotman_cli_cmd
 def status(source_path: Path):
     """Updates dotman project with link from SOURCE_PATH to existing dotfile in TARGET_PATH"""
     try:
