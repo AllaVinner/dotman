@@ -1,9 +1,11 @@
 from pathlib import Path
+import os
+import pytest
 import json
 import shutil
 from dotman_tests.test_utils import ensure_folder_tree
 
-from dotman.main import Project
+from dotman.main import Project, ProjectException
 
 
 def test_set_link(tmp_path):
@@ -11,33 +13,92 @@ def test_set_link(tmp_path):
     config_file = Path(home, "config", "vimrc")
     projects = Path(home, "projects")
     ensure_folder_tree(folders=[projects], files=[(config_file, "in vimrc")])
-
     project_path = Path(projects, "vim")
-    project = Project.init(Path(projects, "vim"))
+    project = Project.init(project_path)
     project._home = home
     project.add_link(config_file)
     config_file.unlink()
+    project.full_config_path.unlink()
+    project = Project.init(project_path)
+    project._home = home
+    assert project.config.links == {}
 
-    new_project_path = Path(projects, "vim2")
-    shutil.move(project_path, new_project_path)
-    shutil.rmtree(Path(new_project_path, project._dotman_dir))
+    project.set_link(config_file)
 
-    new_project = Project.init(new_project_path)
-    new_project._home = home
-
-    assert not project_path.exists()
-    assert new_project_path.exists()
-    assert len(new_project.config.links.keys()) == 0
-
-    new_project.set_link(config_file, config_file.name)
-
+    # Check Dotfiles
+    assert config_file.is_file()
     assert config_file.is_symlink()
-    assert config_file.readlink() == Path(new_project.path, "vimrc")
-    assert config_file.read_text() == "in vimrc"
 
-    assert new_project.full_config_path.is_file()
-    with open(Path(new_project.full_config_path), "r") as f:
-        config = json.load(f)
-    assert config == {
-        "links": {"vimrc": {"source": config_file.relative_to(home).as_posix()}}
+    # Check Project
+    project_content = os.listdir(project.path)
+    assert config_file.name in project_content
+    assert project._config_file in project_content
+    assert len(project_content) == 2
+
+    # Check Config
+    assert project.config.model_dump() == {
+        "links": {
+            config_file.name: {"source": Path("~", config_file.relative_to(home))}
+        }
     }
+
+
+def test_set_link_with_missing_target(tmp_path):
+    home = Path(tmp_path, "home")
+    config_file = Path(home, "config", "vimrc")
+    projects = Path(home, "projects")
+    ensure_folder_tree(folders=[projects], files=[(config_file, "in vimrc")])
+    project_path = Path(projects, "vim")
+    project = Project.init(project_path)
+    project._home = home
+    project.add_link(config_file)
+    config_file.unlink()
+    project.full_config_path.unlink()
+    project = Project.init(project_path)
+    project._home = home
+    assert project.config.links == {}
+
+    with pytest.raises(ProjectException):
+        project.set_link(config_file, "other")
+
+    # Check Dotfiles
+    assert not config_file.exists()
+
+    # Check Project
+    project_content = os.listdir(project.path)
+    assert config_file.name in project_content
+    assert project._config_file in project_content
+    assert len(project_content) == 2
+
+    # Check Config
+    assert project.config.model_dump() == {"links": {}}
+
+
+def test_set_link_with_exising_source(tmp_path):
+    home = Path(tmp_path, "home")
+    config_file = Path(home, "config", "vimrc")
+    projects = Path(home, "projects")
+    ensure_folder_tree(folders=[projects], files=[(config_file, "in vimrc")])
+    project_path = Path(projects, "vim")
+    project = Project.init(project_path)
+    project._home = home
+    project.add_link(config_file)
+    project.full_config_path.unlink()
+    project = Project.init(project_path)
+    project._home = home
+    assert project.config.links == {}
+
+    with pytest.raises(ProjectException):
+        project.set_link(config_file)
+
+    # Check Dotfiles
+    assert config_file.exists()
+
+    # Check Project
+    project_content = os.listdir(project.path)
+    assert config_file.name in project_content
+    assert project._config_file in project_content
+    assert len(project_content) == 2
+
+    # Check Config
+    assert project.config.model_dump() == {"links": {}}
