@@ -1,6 +1,5 @@
 from pathlib import Path
 import pytest
-import os
 import json
 from dotman_tests.test_utils import ensure_folder_tree
 
@@ -65,6 +64,7 @@ def test_from_symlink_project_path(tmp_path):
     dotfile = Path(home, "dotfile.txt")
     ensure_folder_tree(folders=[projects], files=[(dotfile, "aa")])
     project = Project.init(Path(projects, "vim"))
+    project._home = home
     project.add_link(dotfile)
     link_path = Path(home, "link_to_project")
     link_path.symlink_to(project.path)

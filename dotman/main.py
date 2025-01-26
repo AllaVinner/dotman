@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, config, ValidationError
+import json
 from dataclasses import dataclass
 from typing import Self
 
@@ -81,13 +82,24 @@ class Project:
                 f"Config file at {config_file.as_posix()} is corrupted. "
                 f"Parsing failed with the above validation error."
             )
+        for link_name in config.links.keys():
+            source = config.links[link_name].source
+            if source.parts[0] == "~":
+                source = Path(*source.parts[1:])
+            config.links[link_name].source = source
         return cls(path=project_path, config=config)
 
     def write(self):
         config_path = Path(self.path, self._config_file)
         logger.info(f"Writing config file at: {config_path.as_posix()}")
+        model_json = self.config.model_dump(mode="json")
+        # TODO: Handle in an annotated serializing in a custom Path object instead
+        for link_name in model_json["links"].keys():
+            model_json["links"][link_name]["source"] = Path(
+                "~", model_json["links"][link_name]["source"]
+            ).as_posix()
         with open(config_path, "w") as f:
-            f.write(self.config.model_dump_json())
+            json.dump(model_json, f)
 
     def add_link(self, source: Path, target_name: str | None = None) -> None:
         # TODO: Fix issue where you try to add the same source twice,
@@ -108,9 +120,12 @@ class Project:
         if not source.exists():
             raise ProjectException(f"Source {source} does not exists.")
         try:
+            # TODO: Make this prettier
             # TODO: Make some tests to see how resolve
             # behave over .. and symlinks
-            home_to_source_path = source.resolve().relative_to(self._home)
+            fake_source = Path(Path(*source.parts[:-1]), "xxx")
+            fake_source = fake_source.resolve().relative_to(self._home)
+            home_to_source_path = Path(Path(*fake_source.parts[:-1]), source.name)
         except ValueError:
             # TODO: Allow for root paths, maybe more?
             raise ProjectException("Source must be relative to home.")
@@ -119,29 +134,43 @@ class Project:
         logger.info(
             f"Creating symlink from {source.as_posix()} to {target_path.as_posix()}."
         )
-        source.symlink_to(target_path.absolute())
-
-        self.config.links[target_name] = Link(source=Path("~", home_to_source_path))
+        source.symlink_to(target_path)
+        self.config.links[target_name] = Link(source=home_to_source_path)
         self.write()
 
     def restore_link(self, link_name: str) -> None:
-        if link_name not in self.config.links:
-            raise ProjectException(f"Could not find link 'link_name' in project.")
-        link = self.config.links[link_name]
-        full_link_path = Path(self._home, link.source)
+        link = self.config.links.get(link_name)
+        if link is None:
+            raise ProjectException(f"Could not find link '{link_name}' in project.")
+        if link.source.parts[0] == "~":
+            full_link_path = Path(self._home, Path(*link.source.parts[1:]))
+        else:
+            full_link_path = Path(self._home, link.source)
         if full_link_path.exists() or full_link_path.is_symlink():
             raise ProjectException(
                 f"Cannot restore link. Already file at links source."
             )
         if not full_link_path.parent.exists():
+            logger.info(f"Creating parent folders of link {link.source.as_posix()}")
             full_link_path.parent.mkdir(parents=True)
-        full_link_path.symlink_to(Path(self.path, link_name).absolute())
+
+        logger.info(
+            f"Creating symlink from {link.source.as_posix()} "
+            f"to {Path(self.path, link_name).as_posix()}"
+        )
+        full_link_path.symlink_to(Path(self.path, link_name).resolve())
 
     def restore(self):
         for link_name in self.config.links:
             self.restore_link(link_name)
 
-    def set_link(self, source_path: Path, target_name: str) -> None:
+    def set_link(self, source_path: Path, target_name: str | None = None) -> None:
+        if target_name is None:
+            logger.debug(
+                f"Setting target name to {source_path.name}, "
+                f"inferred from source path {source_path.as_posix()}"
+            )
+            target_name = source_path.name
         target_path = Path(self.path, target_name)
         if not target_path.exists():
             raise ProjectException(f"Link target {target_name} does not exist.")
@@ -153,16 +182,20 @@ class Project:
             raise ProjectException("Source must be relative to home.")
 
         source_path.symlink_to(target_path.absolute())
-        self.config.links[target_name] = Link(source=home_to_source_path)
+        self.config.links[target_name] = Link(source=Path("~", home_to_source_path))
         self.write()
 
-    def status(self):
-        link_status_dict = {}
+    def status(self) -> dict[str, str]:
+        link_status_dict: dict[str, str] = {}
         for target_name, link in self.config.links.items():
-            full_path = Path(self._home, link.source)
+            if link.source.parts[0] == "~":
+                full_path = Path(self._home, Path(*link.source.parts[1:]))
+            else:
+                full_path = Path(self._home, link.source)
             if not self.path.joinpath(target_name).exists():
                 link_status = "Dotfile not in project folder."
             elif not full_path.is_symlink():
+                print(full_path)
                 link_status = "Link does not exist."
             elif (
                 not full_path.resolve().relative_to(self.path.resolve()).as_posix()
@@ -173,3 +206,6 @@ class Project:
                 link_status = "Complete"
             link_status_dict[target_name] = link_status
         return link_status_dict
+
+    def refresh(self) -> None:
+        self = self.__class__.from_path(self.path)

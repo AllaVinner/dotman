@@ -95,6 +95,9 @@ def test_linking_symlink_source(tmp_path):
 
     # Check Dotfile
     assert dotfile_link.is_symlink()
+
+    print(dotfile_link.readlink())
+    print(project.path)
     assert dotfile_link.readlink() == Path(project.path, dotfile_link.name)
     assert dotfile_link.is_file()
     assert dotfile_link.read_text() == dotfile_content
@@ -108,6 +111,7 @@ def test_linking_symlink_source(tmp_path):
 
     # Check Config
     assert project.full_config_path.is_file()
+    print(project.config)
     with open(Path(project.full_config_path), "r") as f:
         config = json.load(f)
     assert config == {

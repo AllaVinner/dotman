@@ -119,11 +119,7 @@ def set_link(source_path: Path, target_path: Path, force_overwrite):
 @dotman_cli_cmd
 def status(source_path: Path):
     """Updates dotman project with link from SOURCE_PATH to existing dotfile in TARGET_PATH"""
-    try:
-        project = Project.from_path(project_path=source_path)
-    except ProjectException as e:
-        click.echo(e)
-        sys.exit(1)
+    project = Project.from_path(project_path=source_path)
     status = project.status()
     for p, s in status.items():
         click.echo(f"{p}: {s}")

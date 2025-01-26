@@ -1,8 +1,6 @@
 from pathlib import Path
 import os
 import pytest
-import json
-import shutil
 from dotman_tests.test_utils import ensure_folder_tree
 
 from dotman.main import Project, ProjectException
