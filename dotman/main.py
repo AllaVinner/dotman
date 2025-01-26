@@ -27,6 +27,13 @@ class Config(BaseModel):
     links: dict[str, Link]
 
 
+def normalize_path(path: Path) -> Path:
+    path = Path(os.path.normpath(path.expanduser()))
+    if len(path.parts) == 0 or path.parts[0] != "/":
+        path = Path(os.getcwd(), path)
+    return path
+
+
 @dataclass
 class Project:
     path: Path

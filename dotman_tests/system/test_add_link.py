@@ -4,7 +4,7 @@ import os
 import json
 from dotman_tests.test_utils import ensure_folder_tree
 
-from dotman.main import Project, ProjectException
+from dotman.main import ENV_HOME, Project, ProjectException
 
 
 def test_linking_file_source(tmp_path):
@@ -263,3 +263,30 @@ def test_err_linking_with_missing_source(tmp_path):
     with open(Path(project.full_config_path), "r") as f:
         config = json.load(f)
     assert config == {"links": {}}
+
+
+def test_linking_with_tilde(tmp_path):
+    home = Path(tmp_path, "home")
+    os.environ[ENV_HOME] = home.as_posix()
+    projects = Path(home, "projects")
+    dotfile = Path(home, "config", "vimrc")
+    ensure_folder_tree(folders=[projects], files=[(dotfile, "vimrc content")])
+    project = Project.init(Path(projects, "vim"))
+    dotfile_tilde = Path("~", Path(*dotfile.parts[-2:]))
+    project.add_link(dotfile_tilde)
+
+    # Check Dotfile
+    assert not dotfile.exists()
+    assert not dotfile_tilde.exists()
+
+    # Check Project
+    project_folder_content = os.listdir(project.path)
+    assert dotfile_tilde.name in project_folder_content
+    assert project._config_file in project_folder_content
+    assert len(project_folder_content) == 2
+
+    # Check Config
+    assert project.full_config_path.is_file()
+    with open(Path(project.full_config_path), "r") as f:
+        config = json.load(f)
+    assert config == {"links": {"vimrc": {"source": "~/config/vimrc"}}}
