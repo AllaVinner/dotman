@@ -215,5 +215,9 @@ class Project:
             link_status_dict[target_name] = link_status
         return link_status_dict
 
+    def revert(self, link_name: str) -> None:
+        """Move files to where the link is and revmove from config"""
+        pass
+
     def refresh(self) -> None:
         self = self.__class__.from_path(self.path)
