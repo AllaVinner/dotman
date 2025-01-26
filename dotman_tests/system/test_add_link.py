@@ -157,6 +157,7 @@ def test_linking_with_target(tmp_path):
 
 def test_linking_multiple_source(tmp_path):
     home = Path(tmp_path, "home")
+    os.environ[ENV_HOME] = home.as_posix()
     dotfile_1 = Path(home, "config", "dotfile1")
     dotfile_2 = Path(home, "config", "dotfile2")
     dotfile_1_content = "in dotfile 1"
@@ -167,7 +168,6 @@ def test_linking_multiple_source(tmp_path):
         files=[(dotfile_1, dotfile_1_content), (dotfile_2, dotfile_2_content)],
     )
     project = Project.init(Path(projects, "vim"))
-    project._home = home
     project.add_link(dotfile_1)
     project.add_link(dotfile_2)
 
@@ -276,7 +276,7 @@ def test_linking_with_tilde(tmp_path):
     project.add_link(dotfile_tilde)
 
     # Check Dotfile
-    assert not dotfile.exists()
+    assert dotfile.is_symlink()
     assert not dotfile_tilde.exists()
 
     # Check Project
@@ -290,3 +290,5 @@ def test_linking_with_tilde(tmp_path):
     with open(Path(project.full_config_path), "r") as f:
         config = json.load(f)
     assert config == {"links": {"vimrc": {"source": "~/config/vimrc"}}}
+    project_2 = Project.from_path(project.path)
+    assert project_2 == project

@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 import pytest
 from dotman_tests.test_utils import ensure_folder_tree
@@ -34,11 +35,9 @@ def test_set_link(tmp_path):
     assert len(project_content) == 2
 
     # Check Config
-    assert project.config.model_dump() == {
-        "links": {
-            config_file.name: {"source": Path("~", config_file.relative_to(home))}
-        }
-    }
+    with open(project.full_config_path, "r") as f:
+        config_json = json.load(f)
+    assert config_json == {"links": {config_file.name: {"source": "~/config/vimrc"}}}
 
 
 def test_set_link_with_missing_target(tmp_path):

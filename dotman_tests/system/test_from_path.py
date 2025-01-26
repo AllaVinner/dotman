@@ -1,9 +1,10 @@
 from pathlib import Path
+import os
 import pytest
 import json
 from dotman_tests.test_utils import ensure_folder_tree
 
-from dotman.main import Project, ProjectException
+from dotman.main import Project, ProjectException, ENV_HOME
 
 
 def test_from_path(tmp_path):
@@ -60,6 +61,7 @@ def test_from_file_project_path(tmp_path):
 
 def test_from_symlink_project_path(tmp_path):
     home = Path(tmp_path, "home")
+    os.environ[ENV_HOME] = home.as_posix()
     projects = Path(home, "projects")
     dotfile = Path(home, "dotfile.txt")
     ensure_folder_tree(folders=[projects], files=[(dotfile, "aa")])
@@ -69,6 +71,7 @@ def test_from_symlink_project_path(tmp_path):
     link_path = Path(home, "link_to_project")
     link_path.symlink_to(project.path)
     project_2 = Project.from_path(link_path)
+
     assert project_2.path != project.path
     assert project_2.path == link_path
     assert project_2.config == project.config

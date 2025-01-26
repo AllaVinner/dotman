@@ -1,8 +1,14 @@
-from pydantic import BaseModel, Field, config, ValidationError
+from pydantic import (
+    BaseModel,
+    Field,
+    config,
+    ValidationError,
+    WrapSerializer,
+    WrapValidator,
+)
 import os
 import json
-from dataclasses import dataclass
-from typing import Self
+from typing import Annotated, Self
 
 import shutil
 from dataclasses import dataclass
@@ -27,8 +33,19 @@ class Config(BaseModel):
     links: dict[str, Link]
 
 
-def normalize_path(path: Path) -> Path:
-    path = Path(os.path.normpath(path.expanduser()))
+def normalize_path(path: Path, home=None) -> Path:
+    """
+    Contracts: ".", "..", "//"
+    Resolves: "~"
+    Doesn't resolve: symlinks
+    """
+    if home is None:
+        home = Path.home()
+    if len(path.parts) == 0:
+        path = Path(".")
+    elif path.parts[0] == "~":
+        path = Path(home, Path(*path.parts[1:]))
+    path = Path(os.path.normpath(path))
     if len(path.parts) == 0 or path.parts[0] != "/":
         path = Path(os.getcwd(), path)
     return path
@@ -44,7 +61,9 @@ class Project:
     def __post_init__(self):
         os_env_home = os.getenv(ENV_HOME)
         if os_env_home:
-            self._home = Path(os_env_home)
+            self._home = normalize_path(Path(os_env_home))
+        else:
+            self._home = Path.home()
 
     @property
     def config_path(self) -> Path:
@@ -56,6 +75,7 @@ class Project:
 
     @classmethod
     def init(cls, project_path: Path) -> Self:
+        project_path = normalize_path(project_path)
         if project_path.is_file():
             raise ProjectException(
                 f"Given project path already exists as a file. "
@@ -76,6 +96,7 @@ class Project:
 
     @classmethod
     def from_path(cls, project_path: Path) -> Self:
+        project_path = normalize_path(project_path)
         if not project_path.is_dir():
             raise ProjectException(
                 f"Given project path is not a directory. "
@@ -87,36 +108,45 @@ class Project:
                 f"Cannot find config in project. "
                 f"Project Path: {project_path.as_posix()}"
             )
-        with open(config_file, "r") as f:
+        self = cls(path=project_path, config=Config(links={}))
+        self.config = self.read_config(self.full_config_path)
+        return self
+
+    def normalize_path(self, path: Path) -> Path:
+        return normalize_path(path, self._home)
+
+    def write(self):
+        config_path = Path(self.path, self._config_file)
+        logger.info(f"Writing config file at: {config_path.as_posix()}")
+        links = {}
+        for link_name, link in self.config.links.items():
+            links[link_name] = Link(
+                source=Path("~", link.source.relative_to(self._home))
+            )
+        config = Config(links=links)
+        with open(config_path, "w") as f:
+            f.write(config.model_dump_json(indent=4))
+
+    def read_config(self, config_path: Path) -> Config:
+        with open(config_path, "r") as f:
             config_content = f.read()
         try:
             config = Config.model_validate_json(config_content)
         except ValidationError as e:
             raise ProjectException(
                 f"{e}"
-                f"Config file at {config_file.as_posix()} is corrupted. "
+                f"Config file at {config_path.as_posix()} is corrupted. "
                 f"Parsing failed with the above validation error."
             )
-        for link_name in config.links.keys():
-            source = config.links[link_name].source
-            if source.parts[0] == "~":
-                source = Path(*source.parts[1:])
-            config.links[link_name].source = source
-        return cls(path=project_path, config=config)
-
-    def write(self):
-        config_path = Path(self.path, self._config_file)
-        logger.info(f"Writing config file at: {config_path.as_posix()}")
-        model_json = self.config.model_dump(mode="json")
-        # TODO: Handle in an annotated serializing in a custom Path object instead
-        for link_name in model_json["links"].keys():
-            model_json["links"][link_name]["source"] = Path(
-                "~", model_json["links"][link_name]["source"]
-            ).as_posix()
-        with open(config_path, "w") as f:
-            json.dump(model_json, f)
+        links = {}
+        for link_name, link in config.links.items():
+            links[link_name] = Link(source=self.normalize_path(link.source))
+        return Config(links=links)
 
     def add_link(self, source: Path, target_name: str | None = None) -> None:
+        source = self.normalize_path(
+            source,
+        )
         # TODO: Fix issue where you try to add the same source twice,
         # but with different target names.
         if target_name is None:
@@ -138,9 +168,7 @@ class Project:
             # TODO: Make this prettier
             # TODO: Make some tests to see how resolve
             # behave over .. and symlinks
-            fake_source = Path(Path(*source.parts[:-1]), "xxx")
-            fake_source = fake_source.resolve().relative_to(self._home)
-            home_to_source_path = Path(Path(*fake_source.parts[:-1]), source.name)
+            home_to_source_path = source.relative_to(self._home)
         except ValueError:
             # TODO: Allow for root paths, maybe more?
             raise ProjectException("Source must be relative to home.")
@@ -150,17 +178,14 @@ class Project:
             f"Creating symlink from {source.as_posix()} to {target_path.as_posix()}."
         )
         source.symlink_to(target_path)
-        self.config.links[target_name] = Link(source=home_to_source_path)
+        self.config.links[target_name] = Link(source=source)
         self.write()
 
     def restore_link(self, link_name: str) -> None:
         link = self.config.links.get(link_name)
         if link is None:
             raise ProjectException(f"Could not find link '{link_name}' in project.")
-        if link.source.parts[0] == "~":
-            full_link_path = Path(self._home, Path(*link.source.parts[1:]))
-        else:
-            full_link_path = Path(self._home, link.source)
+        full_link_path = Path(self._home, link.source)
         if full_link_path.exists() or full_link_path.is_symlink():
             raise ProjectException(
                 f"Cannot restore link. Already file at links source."
@@ -173,13 +198,14 @@ class Project:
             f"Creating symlink from {link.source.as_posix()} "
             f"to {Path(self.path, link_name).as_posix()}"
         )
-        full_link_path.symlink_to(Path(self.path, link_name).resolve())
+        full_link_path.symlink_to(Path(self.path, link_name))
 
     def restore(self):
         for link_name in self.config.links:
             self.restore_link(link_name)
 
     def set_link(self, source_path: Path, target_name: str | None = None) -> None:
+        source_path = self.normalize_path(source_path)
         if target_name is None:
             logger.debug(
                 f"Setting target name to {source_path.name}, "
@@ -196,21 +222,17 @@ class Project:
         except ValueError:
             raise ProjectException("Source must be relative to home.")
 
-        source_path.symlink_to(target_path.absolute())
-        self.config.links[target_name] = Link(source=Path("~", home_to_source_path))
+        source_path.symlink_to(target_path)
+        self.config.links[target_name] = Link(source=source_path)
         self.write()
 
     def status(self) -> dict[str, str]:
         link_status_dict: dict[str, str] = {}
         for target_name, link in self.config.links.items():
-            if link.source.parts[0] == "~":
-                full_path = Path(self._home, Path(*link.source.parts[1:]))
-            else:
-                full_path = Path(self._home, link.source)
+            full_path = Path(self._home, link.source)
             if not self.path.joinpath(target_name).exists():
                 link_status = "Dotfile not in project folder."
             elif not full_path.is_symlink():
-                print(full_path)
                 link_status = "Link does not exist."
             elif (
                 not full_path.resolve().relative_to(self.path.resolve()).as_posix()
