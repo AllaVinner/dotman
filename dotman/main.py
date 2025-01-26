@@ -1,4 +1,5 @@
 from pydantic import BaseModel, Field, config, ValidationError
+import os
 import json
 from dataclasses import dataclass
 from typing import Self
@@ -10,6 +11,8 @@ from pathlib import Path
 import logging
 
 logger = logging.getLogger(__name__)
+
+ENV_HOME = "DOTMAN_HOME"
 
 
 class ProjectException(Exception):
@@ -30,6 +33,11 @@ class Project:
     config: Config
     _home = Path.home()
     _config_file = ".dotman.json"
+
+    def __post_init__(self):
+        os_env_home = os.getenv(ENV_HOME)
+        if os_env_home:
+            self._home = Path(os_env_home)
 
     @property
     def config_path(self) -> Path:

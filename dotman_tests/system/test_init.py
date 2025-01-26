@@ -4,7 +4,7 @@ import json
 import os
 from dotman_tests.test_utils import ensure_folder_tree
 
-from dotman.main import Project, Config, ProjectException
+from dotman.main import Project, Config, ProjectException, ENV_HOME
 
 
 def test_non_existing_folder(tmp_path):
