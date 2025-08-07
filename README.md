@@ -1,6 +1,8 @@
 # DOTMAN
 A simple CLI or python script for managing dotfiles.
 
+## Quickstart
+
 - **Init** a new dotman dotfile project
 ```
 dotman init ./dotfileproject

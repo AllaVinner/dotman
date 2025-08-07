@@ -1,5 +1,0 @@
-click
-pydantic
-pytest
-
-
