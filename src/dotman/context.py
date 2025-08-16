@@ -10,7 +10,7 @@ class Context:
     root: Path = field(default_factory=lambda: Path("/"))
 
 
-context = ContextVar("context")
+context: ContextVar[Context] = ContextVar("context")
 
 
 def get_context():
