@@ -5,16 +5,24 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "click>=8.2.1",
     "pydantic>=2.11.7",
     "toml>=0.10.2",
 ]
+scripts = { dotman = "dotman.cli:main" }
 
 [dependency-groups]
 dev = [
+    "uv>=0.8.11",
     "pytest>=8.4.1",
+    "ruff>=0.12.9",
+    "mypy>=1.17.1",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = [
   "."
 ]
+
+[tool.uv]
+package = true
