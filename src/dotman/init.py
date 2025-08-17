@@ -21,8 +21,8 @@ def _init(project_path: Path) -> None:
     logger.info(f"Complete initialization of project at {format_path(project_path)}")
 
 
-def init(project_path: Path | str | None):
-    if project_path is None:
-        project_path = Path(".")
-    project_path = Path(project_path)
-    _init(project_path)
+def init(project: Path | str | None):
+    if project is None:
+        project = Path(".")
+    project = Path(project)
+    _init(project)
