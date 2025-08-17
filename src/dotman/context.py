@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from contextvars import ContextVar
 from typing import Iterator
+from contextlib import contextmanager
 
 
 @dataclass
@@ -24,7 +25,8 @@ def get_context() -> Context:
         return global_context.get()
 
 
-def managed_context(context: Context | None) -> Iterator[Context]:
+@contextmanager
+def managed_context(context: Context | None = None) -> Iterator[Context]:
     token = None
     try:
         if context is None:
@@ -36,14 +38,15 @@ def managed_context(context: Context | None) -> Iterator[Context]:
             global_context.reset(token)
 
 
-def resolve_path(path: Path, context: Context) -> Path:
+def resolve_path(path: Path, context: Context | None = None) -> Path:
+    if context is None:
+        context = get_context()
     norm_path = Path(os.path.normpath(path))
-    if path.is_absolute():
+    if norm_path.is_absolute():
         return norm_path
-    parts = path.parts
+    parts = norm_path.parts
     if len(parts) == 0:
         return context.cwd
     if parts[0] == "~":
-        return Path(context.home, *parts[1:])
-    return Path(context.cwd, path) 
-    
+        return Path(os.path.normpath(Path(context.home, *parts[1:])))
+    return Path(os.path.normpath(Path(context.cwd, norm_path)))
