@@ -28,7 +28,7 @@ def init_project(project: Path | None) -> None:
     "--target",
     "target",
     type=click.Path(path_type=Path),
-    default=Path("."),
+    default=None,
 )
 def add_dotfile(dotfile: Path, project: Path, target: Path | None) -> None:
     if target is None:
