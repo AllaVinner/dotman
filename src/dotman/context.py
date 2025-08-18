@@ -1,4 +1,3 @@
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from contextvars import ContextVar
@@ -36,17 +35,3 @@ def managed_context(context: Context | None = None) -> Iterator[Context]:
     finally:
         if token is not None:
             global_context.reset(token)
-
-
-def resolve_path(path: Path, context: Context | None = None) -> Path:
-    if context is None:
-        context = get_context()
-    norm_path = Path(os.path.normpath(path))
-    if norm_path.is_absolute():
-        return norm_path
-    parts = norm_path.parts
-    if len(parts) == 0:
-        return context.cwd
-    if parts[0] == "~":
-        return Path(os.path.normpath(Path(context.home, *parts[1:])))
-    return Path(os.path.normpath(Path(context.cwd, norm_path)))

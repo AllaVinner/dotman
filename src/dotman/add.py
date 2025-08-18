@@ -1,8 +1,9 @@
 from pathlib import Path
 import shutil
 from dotman.config import CONFIG_FILE_NAME, Config
-from dotman.context import Context, get_context, resolve_path
+from dotman.context import Context, get_context
 from dotman.exceptions import Unreachable
+from dotman.util import resolve_path
 
 
 def _format_dotfile_path(path: Path, context: Context | None = None) -> Path:
@@ -37,10 +38,15 @@ def _add(project: Path, dotfile: Path, target: Path) -> None:
 
 
 def add(
-    project: Path | str, dotfile: Path | str, target: Path | str | None = None
+    dotfile: Path | str,
+    target: Path | str | None = None,
+    project: Path | str | None = None,
 ) -> None:
-    project = Path(project)
-    dotfile = Path(dotfile)
+    if project is None:
+        project = resolve_path(".")
+    else:
+        project = resolve_path(project)
+    dotfile = resolve_path(dotfile)
     if target is None:
         target = Path(dotfile.name)
     else:
