@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from dotman.setup import setup
 from dotman.add import add
 from dotman.config import CONFIG_FILE_NAME
 from dotman.init import init
 from dotman.util import resolve_path
 
-Stage = Literal["setup", "init", "add"]
+Stage = Literal["setup", "init", "add", "new", "resetup"]
 
 
 @dataclass
@@ -67,3 +68,12 @@ def setup_folder_structure(
     add(project=paths.project, dotfile=paths.tmux_dir)
     if stop_after == "add":
         return paths
+    paths.bashrc.unlink()
+    paths.tmux_dir.unlink()
+    if stop_after == "new":
+        return paths
+    setup(target=paths.bashrc.name, project=paths.project)
+    setup(target=paths.tmux_dir.name, project=paths.project)
+    if stop_after == "resetup":
+        return paths
+    return paths

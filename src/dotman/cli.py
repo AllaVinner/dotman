@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import get_args
 import click
+from dotman.setup import setup, setup_project
 from dotman.add import add
 from dotman.examples import Stage, setup_folder_structure
 from dotman.init import init
@@ -36,6 +37,22 @@ def add_dotfile(dotfile: Path, project: Path, target: Path | None) -> None:
     add(project=project, dotfile=dotfile, target=target)
 
 
+@click.command("setup")
+@click.argument("target", type=click.Path(path_type=Path), required=False)
+@click.option(
+    "-p",
+    "--project",
+    "project",
+    type=click.Path(path_type=Path),
+    default=Path("."),
+)
+def setup_target(project: Path, target: Path | None) -> None:
+    if target is None:
+        setup_project(project=project)
+    else:
+        setup(project=project, target=target)
+
+
 @click.command("example")
 @click.argument("stage", type=click.Choice(get_args(Stage)), required=True)
 @click.argument("folder", type=click.Path(path_type=Path), required=False)
@@ -52,6 +69,7 @@ def cli():
 
 cli.add_command(init_project)
 cli.add_command(add_dotfile)
+cli.add_command(setup_target)
 cli.add_command(example_setup)
 
 

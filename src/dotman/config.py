@@ -22,9 +22,7 @@ class Config(BaseModel):
             with open(config_path, "r", encoding="utf-8") as f:
                 config_dict = toml.load(f)
         except FileNotFoundError:
-            raise DotmanException(
-                f"Path {project.as_posix()} is not a dotman project. Please run `dotman init`."
-            )
+            raise DotmanException(f"Path {project.as_posix()} is not a dotman project.")
         try:
             config = Config.model_validate(config_dict)
         except ValidationError as e:
