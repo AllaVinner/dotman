@@ -2,11 +2,13 @@ from pathlib import Path
 
 from dotman.add import add
 from dotman.config import Config
+from dotman.context import Context, managed_context
 from dotman.examples import setup_folder_structure
 
 
 def test_basic(tmp_path: Path) -> None:
-    with setup_folder_structure(Path(tmp_path, "root"), stop_after="init") as paths:
+    paths = setup_folder_structure(Path(tmp_path, "root"), stop_after="init")
+    with managed_context(Context(home=paths.home, cwd=paths.project)):
         add(dotfile="~/bashrc")
         assert paths.bashrc.exists()
         assert paths.bashrc.is_symlink()

@@ -1,12 +1,10 @@
 from __future__ import annotations
-from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Literal
 
 from dotman.add import add
 from dotman.config import CONFIG_FILE_NAME
-from dotman.context import Context, managed_context
 from dotman.init import init
 from dotman.util import resolve_path
 
@@ -45,11 +43,10 @@ class BasicPaths:
         )
 
 
-@contextmanager
 def setup_folder_structure(
     root_folder: Path | str,
     stop_after: Stage,
-) -> Iterator[BasicPaths]:
+) -> BasicPaths:
     paths = BasicPaths.from_root(resolve_path(root_folder))
     for path in [
         paths.root,
@@ -61,21 +58,12 @@ def setup_folder_structure(
         path.mkdir(parents=True, exist_ok=True)
     for path in [paths.bashrc, paths.tmux_config]:
         path.write_text("ORIGIN: " + path.name)
-    with managed_context(Context(cwd=paths.project, home=paths.home)):
-        if stop_after == "setup":
-            yield paths
-            return
-        init(project=paths.project)
-        if stop_after == "init":
-            yield paths
-            return
-        add(project=paths.project, dotfile=paths.bashrc)
-        add(project=paths.project, dotfile=paths.tmux_dir)
-        if stop_after == "add":
-            yield paths
-            return
-
-
-def setup_example(root_folder: Path, stage: Stage):
-    with setup_folder_structure(root_folder=root_folder, stop_after=stage):
-        pass
+    if stop_after == "setup":
+        return paths
+    init(project=paths.project)
+    if stop_after == "init":
+        return paths
+    add(project=paths.project, dotfile=paths.bashrc)
+    add(project=paths.project, dotfile=paths.tmux_dir)
+    if stop_after == "add":
+        return paths

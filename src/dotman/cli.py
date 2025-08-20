@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import get_args
 import click
 from dotman.add import add
-from dotman.examples import Stage, setup_example
+from dotman.examples import Stage, setup_folder_structure
 from dotman.init import init
 
 
@@ -38,14 +38,11 @@ def add_dotfile(dotfile: Path, project: Path, target: Path | None) -> None:
 
 @click.command("example")
 @click.argument("stage", type=click.Choice(get_args(Stage)), required=True)
-@click.option(
-    "--root",
-    "root",
-    type=click.Path(path_type=Path),
-    default=Path("."),
-)
-def example_setup(stage: Stage, root: Path) -> None:
-    setup_example(root_folder=root, stage=stage)
+@click.argument("folder", type=click.Path(path_type=Path), required=False)
+def example_setup(stage: Stage, folder: Path | None) -> None:
+    if folder is None:
+        folder = Path(".")
+    setup_folder_structure(root_folder=folder, stop_after=stage)
 
 
 @click.group()
