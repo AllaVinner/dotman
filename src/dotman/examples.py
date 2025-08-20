@@ -1,15 +1,16 @@
 from __future__ import annotations
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Iterator, Literal
 
-from dotman.setup import setup
 from dotman.add import add
 from dotman.config import CONFIG_FILE_NAME
+from dotman.context import Context, Platform, managed_context
 from dotman.init import init
 from dotman.util import resolve_path
 
-Stage = Literal["setup", "init", "add", "new", "resetup"]
+Stage = Literal["setup", "init", "add", "new"]
 
 
 @dataclass
@@ -72,8 +73,9 @@ def setup_folder_structure(
     paths.tmux_dir.unlink()
     if stop_after == "new":
         return paths
-    setup(target=paths.bashrc.name, project=paths.project)
-    setup(target=paths.tmux_dir.name, project=paths.project)
-    if stop_after == "resetup":
-        return paths
-    return paths
+
+
+@contextmanager
+def managed_setup(base_dir: Path | str, stage: Stage = "setup") -> Iterator[BasicPaths]:
+    with managed_context(context=Context(cwd=Path(base_dir, "home/project"), home=Path(base_dir, "home"), platform=Platform.windows)):
+        yield setup_folder_structure(base_dir, stop_after=stage)

@@ -3,6 +3,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ValidationError
 import toml
 
+from dotman.context import Platform
 from dotman.exceptions import DotmanException
 
 
@@ -11,8 +12,12 @@ CONFIG_FILE_NAME = ".dotman.toml"
 DotfilePath = Path
 
 
+class DotfileConfig(BaseModel):
+    links: dict[Platform, DotfilePath]
+
+
 class Config(BaseModel):
-    dotfiles: dict[DotfilePath, DotfilePath] = Field(default_factory=lambda: dict())
+    dotfiles: dict[DotfilePath, DotfilePath | DotfileConfig] = Field(default_factory=lambda: dict())
 
     @classmethod
     def from_project(cls, project: Path | str) -> Config:
