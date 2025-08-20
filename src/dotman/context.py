@@ -9,7 +9,6 @@ from contextlib import contextmanager
 class Context:
     cwd: Path = field(default_factory=lambda: Path.cwd())
     home: Path = field(default_factory=lambda: Path.home())
-    root: Path = field(default_factory=lambda: Path("/"))
 
 
 global_context: ContextVar[Context] = ContextVar("context")

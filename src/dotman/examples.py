@@ -61,7 +61,7 @@ def setup_folder_structure(
         path.mkdir(parents=True, exist_ok=True)
     for path in [paths.bashrc, paths.tmux_config]:
         path.write_text("ORIGIN: " + path.name)
-    with managed_context(Context(cwd=paths.project, home=paths.home, root=paths.root)):
+    with managed_context(Context(cwd=paths.project, home=paths.home)):
         if stop_after == "setup":
             yield paths
             return
