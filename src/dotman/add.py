@@ -1,27 +1,13 @@
 from pathlib import Path
 import shutil
 from dotman.config import CONFIG_FILE_NAME, Config
-from dotman.context import Context, get_context
-from dotman.util import resolve_path
-
-
-def _format_dotfile_path(path: Path, context: Context | None = None) -> Path:
-    if context is None:
-        context = get_context()
-    path = resolve_path(path, context=context)
-    if path.is_relative_to(context.home):
-        return Path("~", path.relative_to(context.home))
-    else:
-        return path
+from dotman.util import format_dotfile_path, format_target_path, resolve_path
 
 
 def _add(project: Path, dotfile: Path, target: Path) -> None:
-    assert not target.is_absolute(), (
-        f"Target path {target.as_posix()} cannot be absolute."
-    )
     full_target = resolve_path(Path(project, target))
-    formatted_target = full_target.relative_to(project)
-    formatted_dotfile = _format_dotfile_path(dotfile)
+    formatted_target = format_target_path(target, project)
+    formatted_dotfile = format_dotfile_path(dotfile)
     config = Config.from_project(project)
     config.dotfiles[formatted_target] = formatted_dotfile
     dotman_config_path = Path(project, CONFIG_FILE_NAME)

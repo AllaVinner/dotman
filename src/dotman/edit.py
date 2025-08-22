@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dotman.add import _format_dotfile_path
+from dotman.util import format_dotfile_path, format_target_path
 from dotman.config import CONFIG_FILE_NAME, Config, DotfileConfig, DotfilePath
 from dotman.context import Platform, PlatformLiteral, get_context
 from dotman.exceptions import DotmanException
@@ -10,14 +10,13 @@ from dotman.util import resolve_path
 def _edit(
     project: Path, dotfile: Path, target: Path, platform: Platform | None = None
 ) -> None:
-    full_target = resolve_path(Path(project, target))
-    formatted_target = full_target.relative_to(project)
+    formatted_target = format_target_path(target, project)
+    formatted_dotfile = format_dotfile_path(dotfile)
     config = Config.from_project(project=project)
-    formatted_dotfile = _format_dotfile_path(dotfile)
     previous_dotconfig = config.dotfiles.get(formatted_target)
     if previous_dotconfig is None:
         raise DotmanException(
-            f"No target {formatted_target.as_posix()} configured in project {project.as_posix()}."
+            f"No target {formatted_target} configured in project {project.as_posix()}."
         )
     if platform is None:
         if isinstance(previous_dotconfig, DotfilePath):

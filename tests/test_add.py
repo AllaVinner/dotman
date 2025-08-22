@@ -18,8 +18,8 @@ def test_basic(tmp_path: Path) -> None:
             == f"ORIGIN: {paths.bashrc.name}"
         )
         config = Config.from_project(paths.project)
-        assert Path(paths.bashrc.name) in config.dotfiles
-        assert config.dotfiles[Path(paths.bashrc.name)] == Path("~/bashrc")
+        assert paths.bashrc.name in config.dotfiles
+        assert config.dotfiles[paths.bashrc.name] == "~/bashrc"
 
         add(project=paths.project, dotfile="~/dot_config/tmux")
         assert paths.tmux_dir.exists()
@@ -31,5 +31,5 @@ def test_basic(tmp_path: Path) -> None:
             paths.project_tmux_config.read_text() == f"ORIGIN: {paths.tmux_config.name}"
         )
         config = Config.from_project(paths.project)
-        assert Path(paths.tmux_dir.name) in config.dotfiles
-        assert config.dotfiles[Path(paths.tmux_dir.name)] == Path("~/dot_config/tmux")
+        assert paths.tmux_dir.name in config.dotfiles
+        assert config.dotfiles[paths.tmux_dir.name] == "~/dot_config/tmux"

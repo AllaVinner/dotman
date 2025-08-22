@@ -9,7 +9,7 @@ from dotman.exceptions import DotmanException
 
 CONFIG_FILE_NAME = ".dotman.toml"
 
-DotfilePath = Path
+DotfilePath = str
 
 
 class DotfileConfig(BaseModel):

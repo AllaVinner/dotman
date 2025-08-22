@@ -23,10 +23,10 @@ def test_platform_specific(tmp_path: Path) -> None:
             platform=Platform.windows,
         )
         config = Config.from_project(paths.project)
-        tmux_dotconfig = config.dotfiles[Path("tmux")]
+        tmux_dotconfig = config.dotfiles["tmux"]
         assert isinstance(tmux_dotconfig, DotfileConfig)
-        assert tmux_dotconfig.links[Platform.windows] == Path("~/tmux")
-        assert tmux_dotconfig.links[Platform.linux] == Path("~/dot_config/tmux")
-        assert tmux_dotconfig.links[Platform.mac] == Path("~/dot_config/tmux")
+        assert tmux_dotconfig.links[Platform.windows] == "~/tmux"
+        assert tmux_dotconfig.links[Platform.linux] == "~/dot_config/tmux"
+        assert tmux_dotconfig.links[Platform.mac] == "~/dot_config/tmux"
         setup_project(project=paths.project)
         assert Path(paths.home, "tmux").is_symlink()
