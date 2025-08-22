@@ -27,7 +27,7 @@ class Platform(Enum):
         if enum_platform is None:
             raise DotmanException(f"System platform {sys_platform} is not supported.")
         return enum_platform
-        
+
 
 PlatformLiteral = Literal["windows", "mac", "linux"]
 

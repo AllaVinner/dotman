@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dotman.config import Config, DotfileConfig, DotfilePath
+from dotman.config import Config, DotfileConfig
 from dotman.context import get_context
 from dotman.exceptions import DotmanException
 from dotman.util import resolve_path
@@ -55,7 +55,9 @@ def _setup_project(project: Path):
         else:
             formatted_dotfile_link = formatted_dotfile
         if formatted_dotfile_link.parts[0] == "~":
-            formatted_dotfile_link = Path(context.home, *formatted_dotfile_link.parts[1:])
+            formatted_dotfile_link = Path(
+                context.home, *formatted_dotfile_link.parts[1:]
+            )
         if formatted_dotfile_link.exists():
             raise DotmanException(
                 f"Cannot setup target {formatted_target.as_posix()}, in project {project.as_posix()}, as the dotfile path {formatted_dotfile_link.as_posix()} already is occupied."

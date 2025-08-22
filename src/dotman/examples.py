@@ -77,5 +77,11 @@ def setup_folder_structure(
 
 @contextmanager
 def managed_setup(base_dir: Path | str, stage: Stage = "setup") -> Iterator[BasicPaths]:
-    with managed_context(context=Context(cwd=Path(base_dir, "home/project"), home=Path(base_dir, "home"), platform=Platform.windows)):
+    with managed_context(
+        context=Context(
+            cwd=Path(base_dir, "home/project"),
+            home=Path(base_dir, "home"),
+            platform=Platform.windows,
+        )
+    ):
         yield setup_folder_structure(base_dir, stop_after=stage)

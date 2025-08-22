@@ -17,7 +17,9 @@ class DotfileConfig(BaseModel):
 
 
 class Config(BaseModel):
-    dotfiles: dict[DotfilePath, DotfilePath | DotfileConfig] = Field(default_factory=lambda: dict())
+    dotfiles: dict[DotfilePath, DotfilePath | DotfileConfig] = Field(
+        default_factory=lambda: dict()
+    )
 
     @classmethod
     def from_project(cls, project: Path | str) -> Config:

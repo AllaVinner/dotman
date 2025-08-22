@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import get_args
 import click
+from dotman.context import Platform
 from dotman.edit import edit
 from dotman.setup import setup, setup_project
 from dotman.add import add
@@ -64,8 +65,16 @@ def setup_target(project: Path, target: Path | None) -> None:
     type=click.Path(path_type=Path),
     default=Path("."),
 )
-def edit_target(project: Path, target: Path, dotfile: Path) -> None:
-    edit(project=project, target=target, dotfile=dotfile)
+@click.option(
+    "--platform",
+    "platform",
+    type=click.Choice(Platform),
+    default=None,
+)
+def edit_target(
+    project: Path, target: Path, dotfile: Path, platform: Platform | None
+) -> None:
+    edit(project=project, target=target, dotfile=dotfile, platform=platform)
 
 
 @click.command("example")
