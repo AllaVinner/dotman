@@ -1,16 +1,30 @@
 from pathlib import Path
+import sys
 from typing import get_args
 import click
 from dotman.context import Platform
 from dotman.edit import edit
+from dotman.exceptions import DotmanException
 from dotman.setup import setup, setup_project
 from dotman.add import add
 from dotman.examples import Stage, setup_folder_structure
 from dotman.init import init
 
 
+def cli_error_handler(f):
+    def inner(*args, **kwargs):
+        try:
+            f(*args, **kwargs)
+        except DotmanException as e:
+            click.echo(e.message)
+            sys.exit(1)
+
+    return inner
+
+
 @click.command("init")
 @click.argument("project", type=click.Path(path_type=Path), required=False)
+@cli_error_handler
 def init_project(project: Path | None) -> None:
     if project is None:
         project = Path(".")
@@ -33,6 +47,7 @@ def init_project(project: Path | None) -> None:
     type=click.Path(path_type=Path),
     default=None,
 )
+@cli_error_handler
 def add_dotfile(dotfile: Path, project: Path, target: Path | None) -> None:
     if target is None:
         target = Path(dotfile.name)
@@ -48,6 +63,7 @@ def add_dotfile(dotfile: Path, project: Path, target: Path | None) -> None:
     type=click.Path(path_type=Path),
     default=Path("."),
 )
+@cli_error_handler
 def setup_target(project: Path, target: Path | None) -> None:
     if target is None:
         setup_project(project=project)
@@ -71,6 +87,7 @@ def setup_target(project: Path, target: Path | None) -> None:
     type=click.Choice(Platform),
     default=None,
 )
+@cli_error_handler
 def edit_target(
     project: Path, target: Path, dotfile: Path, platform: Platform | None
 ) -> None:
@@ -80,6 +97,7 @@ def edit_target(
 @click.command("example")
 @click.argument("stage", type=click.Choice(get_args(Stage)), required=True)
 @click.argument("folder", type=click.Path(path_type=Path), required=False)
+@cli_error_handler
 def example_setup(stage: Stage, folder: Path | None) -> None:
     if folder is None:
         folder = Path(".")
