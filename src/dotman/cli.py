@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 from typing import get_args
 import click
+from dotman.status import status
 from dotman.context import Platform
 from dotman.edit import edit
 from dotman.exceptions import DotmanException
@@ -104,6 +105,22 @@ def example_setup(stage: Stage, folder: Path | None) -> None:
     setup_folder_structure(root_folder=folder, stop_after=stage)
 
 
+@click.command("status")
+@click.argument("project", type=click.Path(path_type=Path), required=False)
+@cli_error_handler
+def project_status(project: Path | None) -> None:
+    if project is None:
+        project = Path(".")
+    stat = status(project=project)
+    link_msgs = [f"{link.target.as_posix()}: {link.status}" for link in stat.links]
+    link_msg = "\n  ".join(link_msgs)
+    msg = f"""\
+Project {stat.project.name}
+  {link_msg}
+"""
+    click.echo(msg)
+
+
 @click.group()
 def cli():
     pass
@@ -113,6 +130,7 @@ cli.add_command(init_project)
 cli.add_command(add_dotfile)
 cli.add_command(setup_target)
 cli.add_command(edit_target)
+cli.add_command(project_status)
 cli.add_command(example_setup)
 
 
