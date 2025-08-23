@@ -13,9 +13,9 @@ dotman init ./dotfileproject
 dotman add ~/.basrc ./dotfileproject
 ```
 
-- **Restore** a dotfile project on a new machine
+- **Setup** a dotfile project on a new machine
 ```
-dotman restore ./dotfileproject
+dotman setup ./dotfileproject
 ```
 
 ## How It Works
@@ -27,7 +27,7 @@ a symlink from the original to the moved object is created.
 The link entry in the configuration file saves the link path as relative to your home path,
 and the target is stored as the name of the moved file.
 This means that it is possible to move a dotman project, and 
-then restoring it using `dotman restore`.
+then set it up using `dotman setup`.
 
 
 ## Example
@@ -78,7 +78,7 @@ mv ~/dotfiles ~/configs
 ```
 
 ```bash
-dotman restore ~/configs/bash
+dotman setup ~/configs/bash
 ```
 
 ```
@@ -127,9 +127,16 @@ dotman add ~/.bashrc ~/dotfiles/bash`
         └── .dotman.json # {"links": {".bashrc": ".bashrc"}}
 ```
 
-#### Restore
-Restoring a dotfile project, creates the links specified in the configuration file.
+#### Setup
+Setup a dotfile project, creates the links specified in the configuration file.
 
+#### Edit
+Edit the links in the configuration.
+In particular, allows to set different paths based on the platform. 
+E.g.
+```bash
+dotman edit --platform windows settings.json ~/AppData/Roaming/Code/User/settings.json
+```
 
 
 ## As Module
@@ -139,12 +146,3 @@ Restoring a dotfile project, creates the links specified in the configuration fi
 
 https://github.com/SuperCuber/dotter
 https://github.com/jbernard/dotfiles
-
-
-
-
-
-
-
-
-
