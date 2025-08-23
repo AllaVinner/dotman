@@ -7,7 +7,7 @@ from dotman.setup import setup_project
 
 
 def test_basic(tmp_path: Path) -> None:
-    paths = setup_folder_structure(Path(tmp_path, "root"), stop_after="new")
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="new-machine")
     with managed_context(Context(home=paths.home, cwd=paths.project)):
         edit(project=paths.project, target="tmux", dotfile="~/tmux")
         setup_project(project=paths.project)
@@ -15,7 +15,7 @@ def test_basic(tmp_path: Path) -> None:
 
 
 def test_platform_specific(tmp_path: Path) -> None:
-    with managed_setup(Path(tmp_path, "root"), stage="new") as paths:
+    with managed_setup(Path(tmp_path, "root"), stage="new-machine") as paths:
         edit(
             project=paths.project,
             target="tmux",

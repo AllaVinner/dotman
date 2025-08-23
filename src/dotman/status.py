@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 import os
 from pathlib import Path
-from typing import Literal
 
 from dotman.config import Config, DotfileConfig
 from dotman.context import get_context

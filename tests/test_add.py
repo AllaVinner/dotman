@@ -7,7 +7,7 @@ from dotman.examples import setup_folder_structure
 
 
 def test_basic(tmp_path: Path) -> None:
-    paths = setup_folder_structure(Path(tmp_path, "root"), stop_after="init")
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="add")
     with managed_context(Context(home=paths.home, cwd=paths.project)):
         add(dotfile="~/bashrc")
         assert paths.bashrc.exists()

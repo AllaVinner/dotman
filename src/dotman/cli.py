@@ -102,7 +102,7 @@ def edit_target(
 def example_setup(stage: Stage, folder: Path | None) -> None:
     if folder is None:
         folder = Path(".")
-    setup_folder_structure(root_folder=folder, stop_after=stage)
+    setup_folder_structure(root_folder=folder, stage=stage)
 
 
 @click.command("status")

@@ -11,7 +11,7 @@ import os
 
 
 def test_init(tmp_path: Path):
-    paths = setup_folder_structure(Path(tmp_path, "root"), stop_after="setup")
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="first-time")
     with managed_context(Context(home=paths.home, cwd=paths.project)):
         init(paths.project)
         assert os.listdir(paths.project) == [CONFIG_FILE_NAME]
@@ -19,7 +19,7 @@ def test_init(tmp_path: Path):
 
 
 def test_already_existing(tmp_path: Path):
-    paths = setup_folder_structure(Path(tmp_path, "root"), stop_after="init")
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="add")
     with managed_context(Context(home=paths.home, cwd=paths.project)):
         with pytest.raises(DotmanException) as ex_info:
             init(paths.project)

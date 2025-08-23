@@ -10,7 +10,8 @@ from dotman.context import Context, Platform, managed_context
 from dotman.init import init
 from dotman.util import resolve_path
 
-Stage = Literal["setup", "init", "add", "new"]
+
+Stage = Literal["first-time", "add", "complete", "new-machine"]
 
 
 @dataclass
@@ -47,7 +48,7 @@ class BasicPaths:
 
 def setup_folder_structure(
     root_folder: Path | str,
-    stop_after: Stage,
+    stage: Stage,
 ) -> BasicPaths:
     paths = BasicPaths.from_root(resolve_path(root_folder))
     for path in [
@@ -60,23 +61,23 @@ def setup_folder_structure(
         path.mkdir(parents=True, exist_ok=True)
     for path in [paths.bashrc, paths.tmux_config]:
         path.write_text("ORIGIN: " + path.name)
-    if stop_after == "setup":
+    if stage == "first-time":
         return paths
     init(project=paths.project)
-    if stop_after == "init":
+    if stage == "add":
         return paths
     add(project=paths.project, dotfile=paths.bashrc)
     add(project=paths.project, dotfile=paths.tmux_dir)
-    if stop_after == "add":
+    if stage == "complete":
         return paths
     paths.bashrc.unlink()
     paths.tmux_dir.unlink()
-    if stop_after == "new":
+    if stage == "new-machine":
         return paths
 
 
 @contextmanager
-def managed_setup(base_dir: Path | str, stage: Stage = "setup") -> Iterator[BasicPaths]:
+def managed_setup(base_dir: Path | str, stage: Stage) -> Iterator[BasicPaths]:
     with managed_context(
         context=Context(
             cwd=Path(base_dir, "home/project"),
@@ -84,4 +85,4 @@ def managed_setup(base_dir: Path | str, stage: Stage = "setup") -> Iterator[Basi
             platform=Platform.windows,
         )
     ):
-        yield setup_folder_structure(base_dir, stop_after=stage)
+        yield setup_folder_structure(base_dir, stage=stage)

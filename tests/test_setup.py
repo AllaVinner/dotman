@@ -6,7 +6,7 @@ from dotman.examples import setup_folder_structure
 
 
 def test_basic(tmp_path: Path) -> None:
-    paths = setup_folder_structure(Path(tmp_path, "root"), stop_after="new")
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="new-machine")
     with managed_context(Context(home=paths.home, cwd=paths.project)):
         setup(project=paths.project, target="bashrc")
         assert paths.bashrc.is_file()
@@ -18,7 +18,7 @@ def test_basic(tmp_path: Path) -> None:
 
 
 def test_full_project(tmp_path: Path) -> None:
-    paths = setup_folder_structure(Path(tmp_path, "root"), stop_after="new")
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="new-machine")
     with managed_context(Context(home=paths.home, cwd=paths.project)):
         setup_project(project=paths.project)
         assert paths.bashrc.is_file()

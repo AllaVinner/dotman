@@ -3,7 +3,7 @@ from dotman.examples import setup_folder_structure
 
 
 def test_setup_setup(tmp_path: Path):
-    paths = setup_folder_structure(tmp_path, "setup")
+    paths = setup_folder_structure(tmp_path, "first-time")
     assert paths.root.is_dir()
     assert paths.home.is_dir()
     assert paths.bashrc.is_file()
@@ -18,7 +18,7 @@ def test_setup_setup(tmp_path: Path):
 
 
 def test_setup_init(tmp_path: Path):
-    paths = setup_folder_structure(tmp_path, "init")
+    paths = setup_folder_structure(tmp_path, "add")
     assert paths.root.is_dir()
     assert paths.home.is_dir()
     assert paths.bashrc.is_file()
@@ -33,7 +33,7 @@ def test_setup_init(tmp_path: Path):
 
 
 def test_setup_add(tmp_path: Path):
-    paths = setup_folder_structure(tmp_path, "add")
+    paths = setup_folder_structure(tmp_path, "complete")
     assert paths.root.is_dir()
     assert paths.home.is_dir()
     assert paths.bashrc.is_symlink()
@@ -48,7 +48,7 @@ def test_setup_add(tmp_path: Path):
 
 
 def test_setup_new(tmp_path: Path):
-    paths = setup_folder_structure(tmp_path, "new")
+    paths = setup_folder_structure(tmp_path, "new-machine")
     assert paths.root.is_dir()
     assert paths.home.is_dir()
     assert not paths.bashrc.exists()
