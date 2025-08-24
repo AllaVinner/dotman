@@ -1,5 +1,11 @@
 # DOTMAN
-A simple CLI or python script for managing dotfiles.
+
+<img align="right" src="./assets/dotman-icon.png" width="128px" style="padding-left:20px"> 
+
+A simple CLI or python script for managing dotfiles
+
+- Text Based 
+- Cross Platform
 
 ## Quickstart
 
