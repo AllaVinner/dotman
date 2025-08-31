@@ -10,6 +10,7 @@ from dotman.setup import setup, setup_project
 from dotman.add import add
 from dotman.examples import Stage, setup_folder_structure
 from dotman.init import init
+from dotman.sync import sync, sync_project
 
 
 def cli_error_handler(f):
@@ -133,6 +134,23 @@ Project {stat.project.name}
   {link_msg}
 """
     click.echo(msg)
+
+
+@click.command("sync")
+@click.argument("target", type=click.Path(path_type=Path), required=False)
+@click.option(
+    "-p",
+    "--project",
+    "project",
+    type=click.Path(path_type=Path),
+    default=Path("."),
+)
+@cli_error_handler
+def sync_target(project: Path, target: Path | None) -> None:
+    if target is None:
+        sync_project(project=project)
+    else:
+        sync(project=project, target=target)
 
 
 @click.group()

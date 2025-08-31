@@ -144,6 +144,15 @@ E.g.
 dotman edit --platform windows settings.json ~/AppData/Roaming/Code/User/settings.json
 ```
 
+
+#### Sync
+Sync copies the files from the dotfile path to the target in the project.
+This is usefull in the scenario where you have used `--mode copy`, and then made changes to the actual dotfile and would like to sync it with your dotfiles project.
+For example, if you are using VSCode on windows without admin rights. 
+You cannot make links, and have to resort to using copy. However, you often make changes to your VSCode settings in the editor.
+This command can then be used to sync the setup with your dotfiles project.
+
+
 ## Windows
 To use symlinks on windows, one must enable developer settings, which is not always possible - e.g. work computers.
 To work around this, there is a `--mode copy` options for most commands which copies the files instead of creating links.
