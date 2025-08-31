@@ -3,7 +3,7 @@ import sys
 from typing import get_args
 import click
 from dotman.status import status
-from dotman.context import Platform
+from dotman.context import DotfileMode, Platform
 from dotman.edit import edit
 from dotman.exceptions import DotmanException
 from dotman.setup import setup, setup_project
@@ -48,11 +48,19 @@ def init_project(project: Path | None) -> None:
     type=click.Path(path_type=Path),
     default=None,
 )
+@click.option(
+    "--mode",
+    "dotfile_mode",
+    type=click.Choice(get_args(DotfileMode)),
+    default="symlink",
+)
 @cli_error_handler
-def add_dotfile(dotfile: Path, project: Path, target: Path | None) -> None:
+def add_dotfile(
+    dotfile: Path, project: Path, target: Path | None, dotfile_mode: DotfileMode
+) -> None:
     if target is None:
         target = Path(dotfile.name)
-    add(project=project, dotfile=dotfile, target=target)
+    add(project=project, dotfile=dotfile, target=target, dotfile_mode=dotfile_mode)
 
 
 @click.command("setup")
@@ -64,12 +72,18 @@ def add_dotfile(dotfile: Path, project: Path, target: Path | None) -> None:
     type=click.Path(path_type=Path),
     default=Path("."),
 )
+@click.option(
+    "--mode",
+    "dotfile_mode",
+    type=click.Choice(get_args(DotfileMode)),
+    default="symlink",
+)
 @cli_error_handler
-def setup_target(project: Path, target: Path | None) -> None:
+def setup_target(project: Path, target: Path | None, dotfile_mode: DotfileMode) -> None:
     if target is None:
-        setup_project(project=project)
+        setup_project(project=project, dotfile_mode=dotfile_mode)
     else:
-        setup(project=project, target=target)
+        setup(project=project, target=target, dotfile_mode=dotfile_mode)
 
 
 @click.command("edit")

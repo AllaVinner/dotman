@@ -4,10 +4,13 @@ from enum import Enum
 from pathlib import Path
 from contextvars import ContextVar
 import sys
-from typing import Iterator, Literal
+from typing import Iterator, Literal, TypeAlias
 from contextlib import contextmanager
 
 from dotman.exceptions import DotmanException
+
+
+DotfileMode: TypeAlias = Literal["symlink", "copy"]
 
 
 class Platform(Enum):

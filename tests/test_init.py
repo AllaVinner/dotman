@@ -11,7 +11,7 @@ import os
 
 
 def test_init(tmp_path: Path):
-    paths = setup_folder_structure(Path(tmp_path, "root"), stage="first-time")
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="init")
     with managed_context(Context(home=paths.home, cwd=paths.project)):
         init(paths.project)
         assert os.listdir(paths.project) == [CONFIG_FILE_NAME]

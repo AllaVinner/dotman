@@ -26,3 +26,26 @@ def test_full_project(tmp_path: Path) -> None:
         assert paths.tmux_dir.is_dir()
         assert paths.tmux_dir.is_symlink()
         assert paths.tmux_config.is_file()
+
+
+def test_setup_with_copies(tmp_path: Path) -> None:
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="new-machine")
+    with managed_context(Context(home=paths.home, cwd=paths.project)):
+        setup(project=paths.project, target="bashrc", dotfile_mode="copy")
+        assert paths.bashrc.is_file()
+        assert not paths.bashrc.is_symlink()
+        setup(project=paths.project, target="tmux", dotfile_mode="copy")
+        assert paths.tmux_dir.is_dir()
+        assert not paths.tmux_dir.is_symlink()
+        assert paths.tmux_config.is_file()
+
+
+def test_full_project_with_copies(tmp_path: Path) -> None:
+    paths = setup_folder_structure(Path(tmp_path, "root"), stage="new-machine")
+    with managed_context(Context(home=paths.home, cwd=paths.project)):
+        setup_project(project=paths.project, dotfile_mode="copy")
+        assert paths.bashrc.is_file()
+        assert not paths.bashrc.is_symlink()
+        assert paths.tmux_dir.is_dir()
+        assert not paths.tmux_dir.is_symlink()
+        assert paths.tmux_config.is_file()

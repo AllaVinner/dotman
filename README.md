@@ -144,6 +144,11 @@ E.g.
 dotman edit --platform windows settings.json ~/AppData/Roaming/Code/User/settings.json
 ```
 
+## Windows
+To use symlinks on windows, one must enable developer settings, which is not always possible - e.g. work computers.
+To work around this, there is a `--mode copy` options for most commands which copies the files instead of creating links.
+E.g. `dotman setup . --mode copy`
+
 
 ## As Module
 `python -m dotman`

@@ -8,10 +8,11 @@ from dotman.add import add
 from dotman.config import CONFIG_FILE_NAME
 from dotman.context import Context, Platform, managed_context
 from dotman.init import init
+from dotman.setup import setup
 from dotman.util import resolve_path
 
 
-Stage = Literal["first-time", "add", "complete", "new-machine"]
+Stage = Literal["init", "add", "complete", "new-machine", "complete-with-copy"]
 
 
 @dataclass
@@ -61,7 +62,7 @@ def setup_folder_structure(
         path.mkdir(parents=True, exist_ok=True)
     for path in [paths.bashrc, paths.tmux_config]:
         path.write_text("ORIGIN: " + path.name)
-    if stage == "first-time":
+    if stage == "init":
         return paths
     init(project=paths.project)
     if stage == "add":
@@ -73,6 +74,12 @@ def setup_folder_structure(
     paths.bashrc.unlink()
     paths.tmux_dir.unlink()
     if stage == "new-machine":
+        return paths
+    setup(project=paths.project, target=paths.project_bashrc.name, dotfile_mode="copy")
+    setup(
+        project=paths.project, target=paths.project_tmux_dir.name, dotfile_mode="copy"
+    )
+    if stage == "complete-with-copy":
         return paths
 
 
