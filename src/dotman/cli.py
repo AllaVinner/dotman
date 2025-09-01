@@ -163,6 +163,7 @@ cli.add_command(add_dotfile)
 cli.add_command(setup_target)
 cli.add_command(edit_target)
 cli.add_command(project_status)
+cli.add_command(sync_target)
 cli.add_command(example_setup)
 
 
