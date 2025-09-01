@@ -22,7 +22,7 @@ class Platform(Enum):
     def from_system(cls) -> Platform:
         sys_platform = sys.platform
         platform_map = {
-            "windows": Platform.windows,
+            "win32": Platform.windows,
             "linux": Platform.linux,
             "darwin": Platform.mac,
         }
